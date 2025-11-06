@@ -1,9 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { BrowserRouter as Router, Routes, Route, useNavigate, useParams } from 'react-router-dom';
 import { ethers } from 'ethers';
 import './App.css';
-import { campaignAPI, userAPI } from './api';
+import { campaignAPI } from './api';
 import Modal from './components/Modal';
 import InputModal from './components/InputModal';
+import CampaignDetail from './components/CampaignDetail';
+import Layout from './components/Layout';
+import BrowseCampaigns from './pages/BrowseCampaigns';
+import CreateCampaign from './pages/CreateCampaign';
+import MyCampaigns from './pages/MyCampaigns';
+import About from './pages/About';
 
 // Import contract ABI (you'll need to copy this from artifacts after compilation)
 import CharityCampaignFactoryABI from './CharityCampaignFactory.json';
@@ -12,14 +19,11 @@ import CharityCampaignFactoryABI from './CharityCampaignFactory.json';
 const CONTRACT_ADDRESS = process.env.REACT_APP_CONTRACT_ADDRESS || 'YOUR_CONTRACT_ADDRESS';
 
 function App() {
-  const [provider, setProvider] = useState(null);
-  const [signer, setSigner] = useState(null);
   const [contract, setContract] = useState(null);
   const [account, setAccount] = useState('');
   const [campaigns, setCampaigns] = useState([]);
   const [loading, setLoading] = useState(false);
   const [networkError, setNetworkError] = useState('');
-  const [activeSection, setActiveSection] = useState('campaigns');
 
   // Modal states
   const [modal, setModal] = useState({
@@ -53,21 +57,39 @@ function App() {
     imageFile: null
   });
 
-  useEffect(() => {
-    initializeProvider();
+  // Modal helper functions
+  const showModal = useCallback((title, message, type = 'info', onConfirm = null) => {
+    setModal({
+      isOpen: true,
+      title,
+      message,
+      type,
+      onConfirm
+    });
   }, []);
 
-  useEffect(() => {
-    if (contract) {
-      loadCampaigns();
-    }
-  }, [contract]);
+  const closeModal = useCallback(() => {
+    setModal(prev => ({ ...prev, isOpen: false }));
+  }, []);
 
-  const initializeProvider = async () => {
+  const showInputModal = useCallback((title, label, placeholder, onSubmit) => {
+    setInputModal({
+      isOpen: true,
+      title,
+      label,
+      placeholder,
+      onSubmit
+    });
+  }, []);
+
+  const closeInputModal = useCallback(() => {
+    setInputModal(prev => ({ ...prev, isOpen: false }));
+  }, []);
+
+  const initializeProvider = useCallback(async () => {
     if (typeof window.ethereum !== 'undefined') {
       try {
         const web3Provider = new ethers.BrowserProvider(window.ethereum);
-        setProvider(web3Provider);
 
         // Check network
         const network = await web3Provider.getNetwork();
@@ -92,7 +114,6 @@ function App() {
         setAccount(accounts[0]);
 
         const web3Signer = await web3Provider.getSigner();
-        setSigner(web3Signer);
 
         const campaignContract = new ethers.Contract(
           CONTRACT_ADDRESS,
@@ -119,38 +140,15 @@ function App() {
     } else {
       showModal('MetaMask Required', 'Please install MetaMask to use this application!', 'error');
     }
-  };
+  }, [showModal]);
 
-  // Modal helper functions
-  const showModal = (title, message, type = 'info', onConfirm = null) => {
-    setModal({
-      isOpen: true,
-      title,
-      message,
-      type,
-      onConfirm
-    });
-  };
+  useEffect(() => {
+    initializeProvider();
+  }, [initializeProvider]);
 
-  const closeModal = () => {
-    setModal({ ...modal, isOpen: false });
-  };
-
-  const showInputModal = (title, label, placeholder, onSubmit) => {
-    setInputModal({
-      isOpen: true,
-      title,
-      label,
-      placeholder,
-      onSubmit
-    });
-  };
-
-  const closeInputModal = () => {
-    setInputModal({ ...inputModal, isOpen: false });
-  };
-
-  const loadCampaigns = async () => {
+  const loadCampaigns = useCallback(async () => {
+    if (!contract || !account) return;
+    
     try {
       setLoading(true);
       const count = await contract.getCampaignCount();
@@ -195,7 +193,13 @@ function App() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [contract, account]);
+
+  useEffect(() => {
+    if (contract) {
+      loadCampaigns();
+    }
+  }, [contract, loadCampaigns]);
 
   const createCampaign = async (e) => {
     e.preventDefault();
@@ -343,382 +347,184 @@ function App() {
     return deadlinePassed || goalReached;
   };
 
+  // Wrapper component for campaign detail page
+  const CampaignDetailPage = () => {
+    const { campaignId } = useParams();
+    const navigate = useNavigate();
+    const [refreshKey, setRefreshKey] = useState(0);
+
+    const handleDonationWithRefresh = (campaignId) => {
+      showInputModal(
+        'Make a Donation',
+        'Enter donation amount in ETH:',
+        '0.1',
+        async (amount) => {
+          if (amount && parseFloat(amount) > 0) {
+            await donate(campaignId, amount);
+            setRefreshKey(prev => prev + 1); // Trigger refresh
+          }
+        }
+      );
+    };
+
+    const handleFinalizeWithRefresh = async (campaignId) => {
+      await finalizeCampaign(campaignId);
+      setRefreshKey(prev => prev + 1); // Trigger refresh
+    };
+
+    const handleRefundWithRefresh = async (campaignId) => {
+      await claimRefund(campaignId);
+      setRefreshKey(prev => prev + 1); // Trigger refresh
+    };
+
+    return (
+      <Layout account={account} loading={loading} networkError={networkError}>
+        <CampaignDetail
+          key={refreshKey}
+          campaignId={parseInt(campaignId)}
+          contract={contract}
+          account={account}
+          onBack={() => navigate('/')}
+          onDonate={handleDonationWithRefresh}
+          onFinalize={handleFinalizeWithRefresh}
+          onClaimRefund={handleRefundWithRefresh}
+          showModal={showModal}
+          showInputModal={showInputModal}
+        />
+        
+        {/* Custom Modal for Notifications */}
+        <Modal
+          isOpen={modal.isOpen}
+          onClose={closeModal}
+          title={modal.title}
+          message={modal.message}
+          type={modal.type}
+          onConfirm={modal.onConfirm}
+        />
+
+        {/* Custom Input Modal for User Input */}
+        <InputModal
+          isOpen={inputModal.isOpen}
+          onClose={closeInputModal}
+          onSubmit={inputModal.onSubmit}
+          title={inputModal.title}
+          label={inputModal.label}
+          placeholder={inputModal.placeholder}
+          type="number"
+        />
+      </Layout>
+    );
+  };
+
   return (
-    <div className="App">
-      <header className="App-header">
-        <h1>🌟 Charity Campaign Platform</h1>
-        <p>Connected Account: {account ? `${account.substring(0, 6)}...${account.substring(38)}` : 'Not Connected'}</p>
-      </header>
+    <Router>
+      <Routes>
+        {/* Browse Campaigns Page */}
+        <Route path="/" element={
+          <Layout account={account} loading={loading} networkError={networkError}>
+            <BrowseCampaigns
+              campaigns={campaigns}
+              loading={loading}
+              account={account}
+              handleDonation={handleDonation}
+              finalizeCampaign={finalizeCampaign}
+              claimRefund={claimRefund}
+              getProgressPercentage={getProgressPercentage}
+              isDeadlinePassed={isDeadlinePassed}
+              canFinalizeCampaign={canFinalizeCampaign}
+            />
+            
+            {/* Custom Modal for Notifications */}
+            <Modal
+              isOpen={modal.isOpen}
+              onClose={closeModal}
+              title={modal.title}
+              message={modal.message}
+              type={modal.type}
+              onConfirm={modal.onConfirm}
+            />
 
-      <nav className="navigation">
-        <button 
-          className={activeSection === 'campaigns' ? 'nav-btn active' : 'nav-btn'}
-          onClick={() => setActiveSection('campaigns')}
-        >
-          🏠 Browse Campaigns
-        </button>
-        <button 
-          className={activeSection === 'create' ? 'nav-btn active' : 'nav-btn'}
-          onClick={() => setActiveSection('create')}
-        >
-          ➕ Create Campaign
-        </button>
-        <button 
-          className={activeSection === 'my-campaigns' ? 'nav-btn active' : 'nav-btn'}
-          onClick={() => setActiveSection('my-campaigns')}
-        >
-          📋 My Campaigns
-        </button>
-        <button 
-          className={activeSection === 'about' ? 'nav-btn active' : 'nav-btn'}
-          onClick={() => setActiveSection('about')}
-        >
-          ℹ️ About
-        </button>
-      </nav>
-
-      {loading && <div className="loading">Processing transaction...</div>}
-      
-      {networkError && (
-        <div className="network-error">
-          {networkError}
-          <p style={{marginTop: '10px', fontSize: '14px'}}>
-            To switch: Click MetaMask → Network dropdown → Select "Localhost 8545"
-          </p>
-        </div>
-      )}
-
-      <div className="container">
-        {activeSection === 'create' && (
-          <section className="create-campaign">
-            <h2>Create New Campaign</h2>
-            <form onSubmit={createCampaign}>
-            <input
-              type="text"
-              placeholder="Beneficiary Address (0x...)"
-              value={newCampaign.beneficiary}
-              onChange={(e) => setNewCampaign({...newCampaign, beneficiary: e.target.value})}
-              required
-            />
-            <input
-              type="text"
-              placeholder="Campaign Title"
-              value={newCampaign.title}
-              onChange={(e) => setNewCampaign({...newCampaign, title: e.target.value})}
-              required
-            />
-            <textarea
-              placeholder="Short Description (on-chain)"
-              value={newCampaign.description}
-              onChange={(e) => setNewCampaign({...newCampaign, description: e.target.value})}
-              required
-            />
-            
-            <select
-              value={newCampaign.category}
-              onChange={(e) => setNewCampaign({...newCampaign, category: e.target.value})}
-            >
-              <option value="">Select Category (Optional)</option>
-              <option value="Health">🏥 Health</option>
-              <option value="Education">📚 Education</option>
-              <option value="Environment">🌱 Environment</option>
-              <option value="Animal Welfare">🐾 Animal Welfare</option>
-              <option value="Disaster Relief">🚨 Disaster Relief</option>
-              <option value="Community">🏘️ Community</option>
-              <option value="Other">💡 Other</option>
-            </select>
-            
-            <input
-              type="text"
-              placeholder="Location (Optional)"
-              value={newCampaign.location}
-              onChange={(e) => setNewCampaign({...newCampaign, location: e.target.value})}
-            />
-            
-            <textarea
-              placeholder="Detailed Description (Optional - stored off-chain)"
-              value={newCampaign.detailedDescription}
-              onChange={(e) => setNewCampaign({...newCampaign, detailedDescription: e.target.value})}
-              rows="4"
-            />
-            
-            <input
-              type="url"
-              placeholder="Website URL (Optional)"
-              value={newCampaign.websiteUrl}
-              onChange={(e) => setNewCampaign({...newCampaign, websiteUrl: e.target.value})}
-            />
-            
-            <div className="file-input-wrapper">
-              <label htmlFor="campaign-image">Campaign Image (Optional)</label>
-              <input
-                id="campaign-image"
-                type="file"
-                accept="image/*"
-                onChange={(e) => setNewCampaign({...newCampaign, imageFile: e.target.files[0]})}
-              />
-              {newCampaign.imageFile && <span className="file-name">{newCampaign.imageFile.name}</span>}
-            </div>
-            
-            <input
+            {/* Custom Input Modal for User Input */}
+            <InputModal
+              isOpen={inputModal.isOpen}
+              onClose={closeInputModal}
+              onSubmit={inputModal.onSubmit}
+              title={inputModal.title}
+              label={inputModal.label}
+              placeholder={inputModal.placeholder}
               type="number"
-              step="0.01"
-              placeholder="Goal Amount (ETH)"
-              value={newCampaign.goalAmount}
-              onChange={(e) => setNewCampaign({...newCampaign, goalAmount: e.target.value})}
-              required
             />
-            <input
+          </Layout>
+        } />
+
+        {/* Create Campaign Page */}
+        <Route path="/create" element={
+          <Layout account={account} loading={loading} networkError={networkError}>
+            <CreateCampaign
+              newCampaign={newCampaign}
+              setNewCampaign={setNewCampaign}
+              createCampaign={createCampaign}
+              loading={loading}
+            />
+            
+            {/* Custom Modal for Notifications */}
+            <Modal
+              isOpen={modal.isOpen}
+              onClose={closeModal}
+              title={modal.title}
+              message={modal.message}
+              type={modal.type}
+              onConfirm={modal.onConfirm}
+            />
+          </Layout>
+        } />
+
+        {/* My Campaigns Page */}
+        <Route path="/my-campaigns" element={
+          <Layout account={account} loading={loading} networkError={networkError}>
+            <MyCampaigns
+              campaigns={campaigns}
+              account={account}
+              loading={loading}
+              finalizeCampaign={finalizeCampaign}
+              getProgressPercentage={getProgressPercentage}
+              canFinalizeCampaign={canFinalizeCampaign}
+            />
+            
+            {/* Custom Modal for Notifications */}
+            <Modal
+              isOpen={modal.isOpen}
+              onClose={closeModal}
+              title={modal.title}
+              message={modal.message}
+              type={modal.type}
+              onConfirm={modal.onConfirm}
+            />
+
+            {/* Custom Input Modal for User Input */}
+            <InputModal
+              isOpen={inputModal.isOpen}
+              onClose={closeInputModal}
+              onSubmit={inputModal.onSubmit}
+              title={inputModal.title}
+              label={inputModal.label}
+              placeholder={inputModal.placeholder}
               type="number"
-              placeholder="Duration (days)"
-              value={newCampaign.durationDays}
-              onChange={(e) => setNewCampaign({...newCampaign, durationDays: e.target.value})}
-              required
             />
-            <button type="submit" disabled={loading}>Create Campaign</button>
-          </form>
-          </section>
-        )}
+          </Layout>
+        } />
 
-        {activeSection === 'campaigns' && (
-          <section className="campaigns">
-            <h2>Active Campaigns</h2>
-            {campaigns.length === 0 ? (
-              <p>No campaigns yet. Create the first one!</p>
-            ) : (
-              <div className="campaign-grid">
-                {campaigns.map((campaign) => (
-                  <div key={campaign.id} className="campaign-card">
-                    {campaign.imageUrl && (
-                      <div className="campaign-image">
-                        <img 
-                          src={`${process.env.REACT_APP_BACKEND_URL}${campaign.imageUrl}`} 
-                          alt={campaign.title}
-                        />
-                      </div>
-                    )}
-                    
-                    <div className="campaign-content">
-                      {campaign.category && (
-                        <span className="campaign-category">{campaign.category}</span>
-                      )}
-                      
-                      <h3>{campaign.title}</h3>
-                      <p className="description">{campaign.description}</p>
-                      
-                      {campaign.location && (
-                        <p className="campaign-location">📍 {campaign.location}</p>
-                      )}
-                      
-                      <div className="campaign-stats">
-                        <div className="stat">
-                          <span className="label">Goal:</span>
-                          <span className="value">{campaign.goalAmount} ETH</span>
-                        </div>
-                        <div className="stat">
-                          <span className="label">Raised:</span>
-                          <span className="value">{campaign.totalRaised} ETH</span>
-                        </div>
-                        <div className="stat">
-                          <span className="label">Deadline:</span>
-                          <span className="value">{campaign.deadline.toLocaleDateString()}</span>
-                        </div>
-                      </div>
+        {/* About Page */}
+        <Route path="/about" element={
+          <Layout account={account} loading={loading} networkError={networkError}>
+            <About />
+          </Layout>
+        } />
 
-                      <div className="progress-bar">
-                        <div 
-                          className="progress-fill" 
-                          style={{width: `${getProgressPercentage(campaign.totalRaised, campaign.goalAmount)}%`}}
-                        />
-                      </div>
-                      <p className="progress-text">
-                        {getProgressPercentage(campaign.totalRaised, campaign.goalAmount)}% funded
-                      </p>
-
-                      {parseFloat(campaign.userContribution) > 0 && (
-                        <p className="user-contribution">
-                          Your contribution: {campaign.userContribution} ETH
-                        </p>
-                      )}
-
-                      <div className="campaign-actions">
-                        {!campaign.finalized && !isDeadlinePassed(campaign.deadline) && (
-                          <button 
-                            onClick={() => handleDonation(campaign.id)}
-                            disabled={loading}
-                            className="btn-primary"
-                          >
-                            Donate
-                          </button>
-                        )}
-
-                        {!campaign.finalized && canFinalizeCampaign(campaign) && 
-                         (campaign.creator.toLowerCase() === account.toLowerCase()) && (
-                          <button 
-                            onClick={() => finalizeCampaign(campaign.id)}
-                            disabled={loading}
-                            className="btn-secondary"
-                          >
-                            Finalize Campaign
-                          </button>
-                        )}
-
-                        {campaign.finalized && campaign.refundEnabled && 
-                         parseFloat(campaign.userContribution) > 0 && (
-                          <button 
-                            onClick={() => claimRefund(campaign.id)}
-                            disabled={loading}
-                            className="btn-warning"
-                          >
-                            Claim Refund
-                          </button>
-                        )}
-
-                        {campaign.finalized && (
-                          <span className="status">
-                            {campaign.refundEnabled ? '❌ Goal Not Reached' : '✅ Successfully Funded'}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </section>
-        )}
-
-        {activeSection === 'my-campaigns' && (
-          <section className="my-campaigns">
-            <h2>My Campaigns</h2>
-            {campaigns.filter(c => c.creator.toLowerCase() === account.toLowerCase()).length === 0 ? (
-              <p>You haven't created any campaigns yet.</p>
-            ) : (
-              <div className="campaign-grid">
-                {campaigns
-                  .filter(c => c.creator.toLowerCase() === account.toLowerCase())
-                  .map((campaign) => (
-                    <div key={campaign.id} className="campaign-card">
-                      <h3>{campaign.title}</h3>
-                      <p className="description">{campaign.description}</p>
-                      
-                      <div className="campaign-stats">
-                        <div className="stat">
-                          <span className="label">Goal:</span>
-                          <span className="value">{campaign.goalAmount} ETH</span>
-                        </div>
-                        <div className="stat">
-                          <span className="label">Raised:</span>
-                          <span className="value">{campaign.totalRaised} ETH</span>
-                        </div>
-                        <div className="stat">
-                          <span className="label">Deadline:</span>
-                          <span className="value">{campaign.deadline.toLocaleDateString()}</span>
-                        </div>
-                      </div>
-
-                      <div className="progress-bar">
-                        <div 
-                          className="progress-fill" 
-                          style={{width: `${getProgressPercentage(campaign.totalRaised, campaign.goalAmount)}%`}}
-                        />
-                      </div>
-                      <p className="progress-text">
-                        {getProgressPercentage(campaign.totalRaised, campaign.goalAmount)}% funded
-                      </p>
-
-                      <div className="campaign-actions">
-                        {!campaign.finalized && canFinalizeCampaign(campaign) && (
-                          <button 
-                            onClick={() => finalizeCampaign(campaign.id)}
-                            disabled={loading}
-                            className="btn-secondary"
-                          >
-                            Finalize Campaign
-                          </button>
-                        )}
-
-                        {campaign.finalized && (
-                          <span className="status">
-                            {campaign.refundEnabled ? '❌ Goal Not Reached' : '✅ Successfully Funded'}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-              </div>
-            )}
-          </section>
-        )}
-
-        {activeSection === 'about' && (
-          <section className="about-section">
-            <h2>About Charity Campaign Platform</h2>
-            <div className="about-content">
-              <div className="about-card">
-                <h3>🎯 Our Mission</h3>
-                <p>
-                  We provide a transparent, decentralized platform for charity fundraising
-                  powered by blockchain technology. Every donation is traceable, secure, and
-                  verifiable on the Ethereum blockchain.
-                </p>
-              </div>
-              
-              <div className="about-card">
-                <h3>🔒 How It Works</h3>
-                <ul>
-                  <li><strong>Create:</strong> Set up a campaign with a goal and deadline</li>
-                  <li><strong>Donate:</strong> Contributors send ETH directly to the campaign</li>
-                  <li><strong>Finalize:</strong> If goal is met, funds go to beneficiary</li>
-                  <li><strong>Refund:</strong> If goal isn't met, donors get their money back</li>
-                </ul>
-              </div>
-
-              <div className="about-card">
-                <h3>✨ Key Features</h3>
-                <ul>
-                  <li>100% transparent - all transactions on-chain</li>
-                  <li>No intermediaries - direct peer-to-peer transfers</li>
-                  <li>Automatic refunds for unsuccessful campaigns</li>
-                  <li>Built with audited OpenZeppelin smart contracts</li>
-                </ul>
-              </div>
-
-              <div className="about-card">
-                <h3>🛠️ Technology Stack</h3>
-                <p>
-                  <strong>Smart Contracts:</strong> Solidity 0.8.20 with OpenZeppelin libraries<br/>
-                  <strong>Frontend:</strong> React with Ethers.js v6<br/>
-                  <strong>Network:</strong> Ethereum (Local Hardhat / Sepolia Testnet)<br/>
-                  <strong>Wallet:</strong> MetaMask integration
-                </p>
-              </div>
-            </div>
-          </section>
-        )}
-      </div>
-
-      {/* Custom Modal for Notifications */}
-      <Modal
-        isOpen={modal.isOpen}
-        onClose={closeModal}
-        title={modal.title}
-        message={modal.message}
-        type={modal.type}
-        onConfirm={modal.onConfirm}
-      />
-
-      {/* Custom Input Modal for User Input */}
-      <InputModal
-        isOpen={inputModal.isOpen}
-        onClose={closeInputModal}
-        onSubmit={inputModal.onSubmit}
-        title={inputModal.title}
-        label={inputModal.label}
-        placeholder={inputModal.placeholder}
-        type="number"
-      />
-    </div>
+        {/* Campaign Detail Page */}
+        <Route path="/campaign/:campaignId" element={<CampaignDetailPage />} />
+      </Routes>
+    </Router>
   );
 }
 

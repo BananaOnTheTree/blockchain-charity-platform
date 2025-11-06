@@ -3,10 +3,11 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
+    "ethers": "^6.9.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
+    "react-router-dom": "^7.9.5",
     "react-scripts": "5.0.1",
-    "ethers": "^6.9.0",
     "web3modal": "^1.9.12"
   },
   "scripts": {

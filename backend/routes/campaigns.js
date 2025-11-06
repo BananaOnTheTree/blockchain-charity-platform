@@ -101,6 +101,45 @@ router.get('/', async (req, res) => {
   }
 });
 
+// Upload gallery images (multiple)
+router.post('/:campaignId/gallery', upload.array('images', 10), async (req, res) => {
+  try {
+    const { campaignId } = req.params;
+
+    const metadata = await CampaignMetadata.findOne({
+      where: { campaignId: parseInt(campaignId) }
+    });
+
+    if (!metadata) {
+      return res.status(404).json({
+        success: false,
+        error: 'Campaign not found'
+      });
+    }
+
+    const galleryImages = metadata.galleryImages || [];
+    
+    // Add new images to gallery
+    if (req.files && req.files.length > 0) {
+      req.files.forEach(file => {
+        galleryImages.push(`/uploads/campaigns/${file.filename}`);
+      });
+    }
+
+    metadata.galleryImages = galleryImages;
+    await metadata.save();
+
+    res.json({ 
+      success: true, 
+      message: `${req.files.length} image(s) uploaded`,
+      data: metadata 
+    });
+  } catch (error) {
+    console.error('Error uploading gallery images:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // Add campaign update
 router.post('/:campaignId/updates', async (req, res) => {
   try {

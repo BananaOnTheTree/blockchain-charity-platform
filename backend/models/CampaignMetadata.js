@@ -15,7 +15,13 @@ const CampaignMetadata = sequelize.define('CampaignMetadata', {
   imageUrl: {
     type: DataTypes.STRING,
     allowNull: true,
-    comment: 'Campaign banner image URL'
+    comment: 'Campaign banner image URL (primary)'
+  },
+  galleryImages: {
+    type: DataTypes.JSON,
+    allowNull: true,
+    defaultValue: [],
+    comment: 'Array of additional campaign images'
   },
   category: {
     type: DataTypes.STRING,
