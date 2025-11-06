@@ -45,9 +45,11 @@ const BrowseCampaigns = ({
               
               <div className="campaign-content">
                 <div className="campaign-header">
-                  {campaign.category && (
-                    <span className="campaign-category">{campaign.category}</span>
-                  )}
+                  <div style={{height: '1.8rem', marginBottom: '0.5rem'}}>
+                    {campaign.category && (
+                      <span className="campaign-category">{campaign.category}</span>
+                    )}
+                  </div>
                   
                   <h3>{campaign.title}</h3>
                   <p className="description">{campaign.description}</p>

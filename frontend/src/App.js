@@ -1,324 +1,37 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useEffect, useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, useNavigate, useParams } from 'react-router-dom';
-import { ethers } from 'ethers';
 import './App.css';
-import { campaignAPI } from './api';
 import Modal from './components/Modal';
 import InputModal from './components/InputModal';
-import CampaignDetail from './components/CampaignDetail';
+import CampaignDetail from './pages/CampaignDetail';
 import Layout from './components/Layout';
 import BrowseCampaigns from './pages/BrowseCampaigns';
 import CreateCampaign from './pages/CreateCampaign';
 import MyCampaigns from './pages/MyCampaigns';
 import About from './pages/About';
-
-// Import contract ABI (you'll need to copy this from artifacts after compilation)
-import CharityCampaignFactoryABI from './CharityCampaignFactory.json';
-
-// Update this with your deployed contract address
-const CONTRACT_ADDRESS = process.env.REACT_APP_CONTRACT_ADDRESS || 'YOUR_CONTRACT_ADDRESS';
+import { useWeb3 } from './hooks/useWeb3';
+import { useModals } from './hooks/useModals';
+import { useCampaignOperations } from './hooks/useCampaignOperations';
+import { useCreateCampaign } from './hooks/useCreateCampaign';
+import { getProgressPercentage, isDeadlinePassed, canFinalizeCampaign } from './utils/campaignUtils';
 
 function App() {
-  const [contract, setContract] = useState(null);
-  const [account, setAccount] = useState('');
-  const [campaigns, setCampaigns] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [networkError, setNetworkError] = useState('');
+  // Custom hooks
+  const { modal, inputModal, showModal, closeModal, showInputModal, closeInputModal } = useModals();
+  const { contract, account, networkError } = useWeb3(showModal);
+  const { campaigns, loading, loadCampaigns, donate, finalizeCampaign, claimRefund } = 
+    useCampaignOperations(contract, account, showModal);
+  const { newCampaign, setNewCampaign, createCampaign, loading: createLoading } = 
+    useCreateCampaign(contract, showModal, loadCampaigns);
 
-  // Modal states
-  const [modal, setModal] = useState({
-    isOpen: false,
-    title: '',
-    message: '',
-    type: 'info',
-    onConfirm: null
-  });
-
-  const [inputModal, setInputModal] = useState({
-    isOpen: false,
-    title: '',
-    label: '',
-    placeholder: '',
-    onSubmit: null
-  });
-
-  // Form states
-  const [newCampaign, setNewCampaign] = useState({
-    beneficiary: '',
-    title: '',
-    description: '',
-    goalAmount: '',
-    durationDays: '',
-    // Off-chain metadata
-    category: '',
-    location: '',
-    detailedDescription: '',
-    websiteUrl: '',
-    imageFile: null
-  });
-
-  // Modal helper functions
-  const showModal = useCallback((title, message, type = 'info', onConfirm = null) => {
-    setModal({
-      isOpen: true,
-      title,
-      message,
-      type,
-      onConfirm
-    });
-  }, []);
-
-  const closeModal = useCallback(() => {
-    setModal(prev => ({ ...prev, isOpen: false }));
-  }, []);
-
-  const showInputModal = useCallback((title, label, placeholder, onSubmit) => {
-    setInputModal({
-      isOpen: true,
-      title,
-      label,
-      placeholder,
-      onSubmit
-    });
-  }, []);
-
-  const closeInputModal = useCallback(() => {
-    setInputModal(prev => ({ ...prev, isOpen: false }));
-  }, []);
-
-  const initializeProvider = useCallback(async () => {
-    if (typeof window.ethereum !== 'undefined') {
-      try {
-        const web3Provider = new ethers.BrowserProvider(window.ethereum);
-
-        // Check network
-        const network = await web3Provider.getNetwork();
-        const chainId = Number(network.chainId);
-        
-        // Check if we're on localhost (chainId 31337)
-        if (chainId !== 31337) {
-          setNetworkError(`⚠️ Wrong Network! You're on chain ID ${chainId}. Please switch MetaMask to "Localhost 8545" (Chain ID: 31337)`);
-          showModal(
-            'Wrong Network',
-            `You're connected to chain ID: ${chainId}\n\nYou need to be on: Localhost 8545 (Chain ID: 31337)\n\nPlease switch networks in MetaMask!`,
-            'warning'
-          );
-          return;
-        } else {
-          setNetworkError('');
-        }
-
-        const accounts = await window.ethereum.request({ 
-          method: 'eth_requestAccounts' 
-        });
-        setAccount(accounts[0]);
-
-        const web3Signer = await web3Provider.getSigner();
-
-        const campaignContract = new ethers.Contract(
-          CONTRACT_ADDRESS,
-          CharityCampaignFactoryABI.abi,
-          web3Signer
-        );
-        setContract(campaignContract);
-
-        // Listen for account changes
-        window.ethereum.on('accountsChanged', (accounts) => {
-          setAccount(accounts[0]);
-          window.location.reload();
-        });
-
-        // Listen for network changes
-        window.ethereum.on('chainChanged', (chainId) => {
-          window.location.reload();
-        });
-
-      } catch (error) {
-        console.error('Error connecting to MetaMask:', error);
-        showModal('MetaMask Required', 'Please install MetaMask to use this application!', 'error');
-      }
-    } else {
-      showModal('MetaMask Required', 'Please install MetaMask to use this application!', 'error');
-    }
-  }, [showModal]);
-
+  // Load campaigns when contract is ready
   useEffect(() => {
-    initializeProvider();
-  }, [initializeProvider]);
-
-  const loadCampaigns = useCallback(async () => {
-    if (!contract || !account) return;
-    
-    try {
-      setLoading(true);
-      const count = await contract.getCampaignCount();
-      const campaignList = [];
-
-      // Fetch all metadata from backend
-      const allMetadata = await campaignAPI.getAllMetadata();
-      const metadataMap = {};
-      allMetadata.forEach(meta => {
-        metadataMap[meta.campaignId] = meta;
-      });
-
-      for (let i = 0; i < count; i++) {
-        const campaign = await contract.getCampaign(i);
-        const contribution = await contract.getContribution(i, account);
-        const metadata = metadataMap[i] || {};
-        
-        campaignList.push({
-          id: i,
-          beneficiary: campaign[0],
-          title: campaign[1],
-          description: campaign[2],
-          goalAmount: ethers.formatEther(campaign[3]),
-          deadline: new Date(Number(campaign[4]) * 1000),
-          totalRaised: ethers.formatEther(campaign[5]),
-          finalized: campaign[6],
-          refundEnabled: campaign[7],
-          creator: campaign[8],
-          userContribution: ethers.formatEther(contribution),
-          // Off-chain metadata
-          imageUrl: metadata.imageUrl,
-          category: metadata.category,
-          location: metadata.location,
-          detailedDescription: metadata.detailedDescription,
-          websiteUrl: metadata.websiteUrl
-        });
-      }
-
-      setCampaigns(campaignList);
-    } catch (error) {
-      console.error('Error loading campaigns:', error);
-    } finally {
-      setLoading(false);
-    }
-  }, [contract, account]);
-
-  useEffect(() => {
-    if (contract) {
+    if (contract && account) {
       loadCampaigns();
     }
-  }, [contract, loadCampaigns]);
+  }, [contract, account, loadCampaigns]);
 
-  const createCampaign = async (e) => {
-    e.preventDefault();
-    try {
-      setLoading(true);
-      
-      // Create campaign on blockchain
-      const tx = await contract.createCampaign(
-        newCampaign.beneficiary,
-        newCampaign.title,
-        newCampaign.description,
-        ethers.parseEther(newCampaign.goalAmount),
-        parseInt(newCampaign.durationDays)
-      );
-      
-      const receipt = await tx.wait();
-      
-      // Get the campaign ID from the event
-      const event = receipt.logs.find(log => {
-        try {
-          return contract.interface.parseLog(log).name === 'CampaignCreated';
-        } catch {
-          return false;
-        }
-      });
-      
-      let campaignId;
-      if (event) {
-        const parsedEvent = contract.interface.parseLog(event);
-        campaignId = Number(parsedEvent.args[0]);
-      } else {
-        // Fallback: get latest campaign ID
-        const count = await contract.getCampaignCount();
-        campaignId = Number(count) - 1;
-      }
-      
-      // Save metadata to backend
-      if (newCampaign.category || newCampaign.location || newCampaign.imageFile) {
-        await campaignAPI.saveMetadata(
-          campaignId,
-          {
-            category: newCampaign.category,
-            location: newCampaign.location,
-            detailedDescription: newCampaign.detailedDescription,
-            websiteUrl: newCampaign.websiteUrl
-          },
-          newCampaign.imageFile
-        );
-      }
-      
-      showModal('Success!', 'Campaign created successfully!', 'success');
-      setNewCampaign({
-        beneficiary: '',
-        title: '',
-        description: '',
-        goalAmount: '',
-        durationDays: '',
-        category: '',
-        location: '',
-        detailedDescription: '',
-        websiteUrl: '',
-        imageFile: null
-      });
-      await loadCampaigns();
-    } catch (error) {
-      console.error('Error creating campaign:', error);
-      showModal('Error', 'Error creating campaign: ' + error.message, 'error');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const donate = async (campaignId, amount) => {
-    try {
-      setLoading(true);
-      const tx = await contract.donate(campaignId, {
-        value: ethers.parseEther(amount)
-      });
-      await tx.wait();
-      showModal('Success!', 'Donation successful! Thank you for your contribution.', 'success');
-      await loadCampaigns();
-    } catch (error) {
-      console.error('Error donating:', error);
-      showModal('Error', 'Error donating: ' + error.message, 'error');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const finalizeCampaign = async (campaignId) => {
-    try {
-      setLoading(true);
-      const tx = await contract.finalizeCampaign(campaignId);
-      await tx.wait();
-      showModal('Success!', 'Campaign finalized! Funds have been transferred to the beneficiary.', 'success');
-      await loadCampaigns();
-    } catch (error) {
-      console.error('Error finalizing campaign:', error);
-      showModal('Error', 'Error finalizing: ' + error.message, 'error');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const claimRefund = async (campaignId) => {
-    try {
-      setLoading(true);
-      const tx = await contract.claimRefund(campaignId);
-      await tx.wait();
-      showModal('Success!', 'Refund claimed successfully! Funds have been returned to your wallet.', 'success');
-      await loadCampaigns();
-    } catch (error) {
-      console.error('Error claiming refund:', error);
-      showModal('Error', 'Error claiming refund: ' + error.message, 'error');
-    } finally {
-      setLoading(false);
-    }
-  };
-
+  // Helper function for donation input
   const handleDonation = (campaignId) => {
     showInputModal(
       'Make a Donation',
@@ -330,21 +43,6 @@ function App() {
         }
       }
     );
-  };
-
-  const getProgressPercentage = (raised, goal) => {
-    return Math.min((parseFloat(raised) / parseFloat(goal)) * 100, 100).toFixed(1);
-  };
-
-  const isDeadlinePassed = (deadline) => {
-    return new Date() > deadline;
-  };
-  
-  const canFinalizeCampaign = (campaign) => {
-    // Can finalize if deadline passed OR if goal is fully reached
-    const deadlinePassed = new Date() > campaign.deadline;
-    const goalReached = parseFloat(campaign.totalRaised) >= parseFloat(campaign.goalAmount);
-    return deadlinePassed || goalReached;
   };
 
   // Wrapper component for campaign detail page
@@ -361,7 +59,7 @@ function App() {
         async (amount) => {
           if (amount && parseFloat(amount) > 0) {
             await donate(campaignId, amount);
-            setRefreshKey(prev => prev + 1); // Trigger refresh
+            setRefreshKey(prev => prev + 1);
           }
         }
       );
@@ -369,12 +67,12 @@ function App() {
 
     const handleFinalizeWithRefresh = async (campaignId) => {
       await finalizeCampaign(campaignId);
-      setRefreshKey(prev => prev + 1); // Trigger refresh
+      setRefreshKey(prev => prev + 1);
     };
 
     const handleRefundWithRefresh = async (campaignId) => {
       await claimRefund(campaignId);
-      setRefreshKey(prev => prev + 1); // Trigger refresh
+      setRefreshKey(prev => prev + 1);
     };
 
     return (
@@ -391,27 +89,8 @@ function App() {
           showModal={showModal}
           showInputModal={showInputModal}
         />
-        
-        {/* Custom Modal for Notifications */}
-        <Modal
-          isOpen={modal.isOpen}
-          onClose={closeModal}
-          title={modal.title}
-          message={modal.message}
-          type={modal.type}
-          onConfirm={modal.onConfirm}
-        />
-
-        {/* Custom Input Modal for User Input */}
-        <InputModal
-          isOpen={inputModal.isOpen}
-          onClose={closeInputModal}
-          onSubmit={inputModal.onSubmit}
-          title={inputModal.title}
-          label={inputModal.label}
-          placeholder={inputModal.placeholder}
-          type="number"
-        />
+        <Modal {...modal} onClose={closeModal} />
+        <InputModal {...inputModal} onClose={closeInputModal} type="number" />
       </Layout>
     );
   };
@@ -419,7 +98,6 @@ function App() {
   return (
     <Router>
       <Routes>
-        {/* Browse Campaigns Page */}
         <Route path="/" element={
           <Layout account={account} loading={loading} networkError={networkError}>
             <BrowseCampaigns
@@ -433,53 +111,23 @@ function App() {
               isDeadlinePassed={isDeadlinePassed}
               canFinalizeCampaign={canFinalizeCampaign}
             />
-            
-            {/* Custom Modal for Notifications */}
-            <Modal
-              isOpen={modal.isOpen}
-              onClose={closeModal}
-              title={modal.title}
-              message={modal.message}
-              type={modal.type}
-              onConfirm={modal.onConfirm}
-            />
-
-            {/* Custom Input Modal for User Input */}
-            <InputModal
-              isOpen={inputModal.isOpen}
-              onClose={closeInputModal}
-              onSubmit={inputModal.onSubmit}
-              title={inputModal.title}
-              label={inputModal.label}
-              placeholder={inputModal.placeholder}
-              type="number"
-            />
+            <Modal {...modal} onClose={closeModal} />
+            <InputModal {...inputModal} onClose={closeInputModal} type="number" />
           </Layout>
         } />
 
-        {/* Create Campaign Page */}
         <Route path="/create" element={
-          <Layout account={account} loading={loading} networkError={networkError}>
+          <Layout account={account} loading={createLoading} networkError={networkError}>
             <CreateCampaign
               newCampaign={newCampaign}
               setNewCampaign={setNewCampaign}
               createCampaign={createCampaign}
-              loading={loading}
+              loading={createLoading}
             />
-            
-            {/* Custom Modal for Notifications */}
-            <Modal
-              isOpen={modal.isOpen}
-              onClose={closeModal}
-              title={modal.title}
-              message={modal.message}
-              type={modal.type}
-              onConfirm={modal.onConfirm}
-            />
+            <Modal {...modal} onClose={closeModal} />
           </Layout>
         } />
 
-        {/* My Campaigns Page */}
         <Route path="/my-campaigns" element={
           <Layout account={account} loading={loading} networkError={networkError}>
             <MyCampaigns
@@ -490,38 +138,17 @@ function App() {
               getProgressPercentage={getProgressPercentage}
               canFinalizeCampaign={canFinalizeCampaign}
             />
-            
-            {/* Custom Modal for Notifications */}
-            <Modal
-              isOpen={modal.isOpen}
-              onClose={closeModal}
-              title={modal.title}
-              message={modal.message}
-              type={modal.type}
-              onConfirm={modal.onConfirm}
-            />
-
-            {/* Custom Input Modal for User Input */}
-            <InputModal
-              isOpen={inputModal.isOpen}
-              onClose={closeInputModal}
-              onSubmit={inputModal.onSubmit}
-              title={inputModal.title}
-              label={inputModal.label}
-              placeholder={inputModal.placeholder}
-              type="number"
-            />
+            <Modal {...modal} onClose={closeModal} />
+            <InputModal {...inputModal} onClose={closeInputModal} type="number" />
           </Layout>
         } />
 
-        {/* About Page */}
         <Route path="/about" element={
           <Layout account={account} loading={loading} networkError={networkError}>
             <About />
           </Layout>
         } />
 
-        {/* Campaign Detail Page */}
         <Route path="/campaign/:campaignId" element={<CampaignDetailPage />} />
       </Routes>
     </Router>

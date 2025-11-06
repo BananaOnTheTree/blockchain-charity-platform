@@ -440,6 +440,7 @@ body::before {
   grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
   gap: 2.5rem;
   animation: fadeIn 1s ease-out;
+  align-items: start;
 }
 
 .campaign-card {
@@ -467,8 +468,10 @@ body::before {
 }
 
 .campaign-header {
-  min-height: 120px;
+  min-height: 135px;
   margin-bottom: 0.75rem;
+  display: flex;
+  flex-direction: column;
 }
 
 .campaign-metrics {
@@ -595,6 +598,7 @@ body::before {
   font-size: 0.9rem;
   display: -webkit-box;
   -webkit-line-clamp: 2;
+  line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
   min-height: 2.5rem;
@@ -722,6 +726,7 @@ body::before {
   flex-direction: column;
   gap: 0.4rem;
   margin-top: 0.75rem;
+  min-height: 48px;
 }
 
 .campaign-actions button {
@@ -797,12 +802,12 @@ body::before {
 .status {
   display: block;
   text-align: center;
-  padding: 1rem 1.5rem;
-  border-radius: 12px;
+  padding: 0.7rem 1.25rem;
+  border-radius: 8px;
   font-weight: 700;
   background: linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%);
   color: #4a5568;
-  font-size: 1rem;
+  font-size: 0.9rem;
   border: 2px solid #e2e8f0;
   animation: fadeInUp 0.5s ease-out;
 }
@@ -861,7 +866,12 @@ body::before {
   border-radius: 20px;
   font-size: 0.85rem;
   font-weight: 600;
-  margin-bottom: 0.75rem;
+  margin-bottom: 0.5rem;
+  height: 1.8rem;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  width: fit-content;
 }
 
 .campaign-location {
