@@ -153,13 +153,16 @@ contract CharityCampaignFactory is Ownable, ReentrancyGuard {
             msg.sender == campaign.creator || msg.sender == owner(),
             "Only creator or owner can finalize"
         );
+        
+        bool goalReached = campaign.totalRaised >= campaign.goalAmount;
+        
+        // Allow finalization if deadline reached OR goal is fully met
         require(
-            block.timestamp >= campaign.deadline,
-            "Campaign deadline not reached"
+            block.timestamp >= campaign.deadline || goalReached,
+            "Campaign deadline not reached and goal not met"
         );
 
         campaign.finalized = true;
-        bool goalReached = campaign.totalRaised >= campaign.goalAmount;
 
         if (goalReached && campaign.totalRaised > 0) {
             // Transfer funds to beneficiary

@@ -209,10 +209,41 @@ describe("CharityCampaignFactory", function () {
       expect(campaign.refundEnabled).to.be.true;
     });
 
-    it("Should reject finalization before deadline", async function () {
+    it("Should reject finalization before deadline and goal not met", async function () {
       await expect(
         factory.finalizeCampaign(0)
-      ).to.be.revertedWith("Campaign deadline not reached");
+      ).to.be.revertedWith("Campaign deadline not reached and goal not met");
+    });
+
+    it("Should allow finalization when goal is fully met before deadline", async function () {
+      // Create a campaign with 1 ETH goal
+      await factory.createCampaign(
+        beneficiary.address,
+        "Fully Funded Campaign",
+        "Should finalize immediately when goal met",
+        ethers.parseEther("1"),
+        30
+      );
+
+      const campaignId = 1; // Second campaign
+
+      // Get beneficiary balance before donation
+      const balanceBefore = await ethers.provider.getBalance(beneficiary.address);
+
+      // Donate exactly the goal amount
+      await factory.connect(donor1).donate(campaignId, {
+        value: ethers.parseEther("1")
+      });
+
+      // Should be able to finalize immediately (before deadline)
+      await expect(factory.finalizeCampaign(campaignId)).to.not.be.reverted;
+
+      const campaign = await factory.getCampaign(campaignId);
+      expect(campaign.finalized).to.be.true;
+      
+      // Funds should be transferred to beneficiary
+      const balanceAfter = await ethers.provider.getBalance(beneficiary.address);
+      expect(balanceAfter - balanceBefore).to.equal(ethers.parseEther("1"));
     });
 
     it("Should reject finalization by unauthorized user", async function () {
