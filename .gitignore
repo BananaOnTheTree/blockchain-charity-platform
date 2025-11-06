@@ -15,6 +15,11 @@ frontend/build/
 frontend/.env
 frontend/.env.local
 
+# Backend
+backend/node_modules/
+backend/.env
+backend/uploads/
+
 # IDE
 .idea/
 .vscode/
