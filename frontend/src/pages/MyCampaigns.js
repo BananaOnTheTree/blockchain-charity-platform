@@ -35,19 +35,17 @@ const MyCampaigns = ({
               
               <h3>{campaign.title}</h3>
               <p className="description">{campaign.description}</p>
+              <p className="campaign-location"></p>
               
-              <div className="campaign-stats">
+              <div className="campaign-metrics">
+                <div className="campaign-stats">
                 <div className="stat">
-                  <span className="label">Goal:</span>
+                  <span className="label">Goal</span>
                   <span className="value">{campaign.goalAmount} ETH</span>
                 </div>
                 <div className="stat">
-                  <span className="label">Raised:</span>
+                  <span className="label">Raised</span>
                   <span className="value">{campaign.totalRaised} ETH</span>
-                </div>
-                <div className="stat">
-                  <span className="label">Deadline:</span>
-                  <span className="value">{campaign.deadline.toLocaleDateString()}</span>
                 </div>
               </div>
 
@@ -56,10 +54,15 @@ const MyCampaigns = ({
                   className="progress-fill" 
                   style={{width: `${getProgressPercentage(campaign.totalRaised, campaign.goalAmount)}%`}}
                 />
+                <p className="progress-text">
+                  {getProgressPercentage(campaign.totalRaised, campaign.goalAmount)}% funded
+                </p>
               </div>
-              <p className="progress-text">
-                {getProgressPercentage(campaign.totalRaised, campaign.goalAmount)}% funded
-              </p>
+              
+              <div className="stat" style={{marginTop: '0.5rem'}}>
+                <span className="label">Deadline</span>
+                <span className="value">{campaign.deadline.toLocaleDateString()}</span>
+              </div>
 
               <div className="campaign-actions">
                 {!campaign.finalized && canFinalizeCampaign(campaign) && (
@@ -77,6 +80,7 @@ const MyCampaigns = ({
                     {campaign.refundEnabled ? '❌ Goal Not Reached' : '✅ Successfully Funded'}
                   </span>
                 )}
+              </div>
               </div>
             </div>
           ))}
