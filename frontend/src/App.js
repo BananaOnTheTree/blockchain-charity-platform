@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { ethers } from 'ethers';
 import './App.css';
 import { campaignAPI, userAPI } from './api';
+import Modal from './components/Modal';
+import InputModal from './components/InputModal';
 
 // Import contract ABI (you'll need to copy this from artifacts after compilation)
 import CharityCampaignFactoryABI from './CharityCampaignFactory.json';
@@ -18,6 +20,23 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [networkError, setNetworkError] = useState('');
   const [activeSection, setActiveSection] = useState('campaigns');
+
+  // Modal states
+  const [modal, setModal] = useState({
+    isOpen: false,
+    title: '',
+    message: '',
+    type: 'info',
+    onConfirm: null
+  });
+
+  const [inputModal, setInputModal] = useState({
+    isOpen: false,
+    title: '',
+    label: '',
+    placeholder: '',
+    onSubmit: null
+  });
 
   // Form states
   const [newCampaign, setNewCampaign] = useState({
@@ -57,7 +76,11 @@ function App() {
         // Check if we're on localhost (chainId 31337)
         if (chainId !== 31337) {
           setNetworkError(`⚠️ Wrong Network! You're on chain ID ${chainId}. Please switch MetaMask to "Localhost 8545" (Chain ID: 31337)`);
-          alert(`WRONG NETWORK!\n\nYou're connected to chain ID: ${chainId}\nYou need to be on: Localhost 8545 (Chain ID: 31337)\n\nPlease switch networks in MetaMask!`);
+          showModal(
+            'Wrong Network',
+            `You're connected to chain ID: ${chainId}\n\nYou need to be on: Localhost 8545 (Chain ID: 31337)\n\nPlease switch networks in MetaMask!`,
+            'warning'
+          );
           return;
         } else {
           setNetworkError('');
@@ -91,11 +114,40 @@ function App() {
 
       } catch (error) {
         console.error('Error connecting to MetaMask:', error);
-        alert('Please install MetaMask!');
+        showModal('MetaMask Required', 'Please install MetaMask to use this application!', 'error');
       }
     } else {
-      alert('Please install MetaMask!');
+      showModal('MetaMask Required', 'Please install MetaMask to use this application!', 'error');
     }
+  };
+
+  // Modal helper functions
+  const showModal = (title, message, type = 'info', onConfirm = null) => {
+    setModal({
+      isOpen: true,
+      title,
+      message,
+      type,
+      onConfirm
+    });
+  };
+
+  const closeModal = () => {
+    setModal({ ...modal, isOpen: false });
+  };
+
+  const showInputModal = (title, label, placeholder, onSubmit) => {
+    setInputModal({
+      isOpen: true,
+      title,
+      label,
+      placeholder,
+      onSubmit
+    });
+  };
+
+  const closeInputModal = () => {
+    setInputModal({ ...inputModal, isOpen: false });
   };
 
   const loadCampaigns = async () => {
@@ -194,7 +246,7 @@ function App() {
         );
       }
       
-      alert('Campaign created successfully!');
+      showModal('Success!', 'Campaign created successfully!', 'success');
       setNewCampaign({
         beneficiary: '',
         title: '',
@@ -210,7 +262,7 @@ function App() {
       await loadCampaigns();
     } catch (error) {
       console.error('Error creating campaign:', error);
-      alert('Error creating campaign: ' + error.message);
+      showModal('Error', 'Error creating campaign: ' + error.message, 'error');
     } finally {
       setLoading(false);
     }
@@ -223,11 +275,11 @@ function App() {
         value: ethers.parseEther(amount)
       });
       await tx.wait();
-      alert('Donation successful!');
+      showModal('Success!', 'Donation successful! Thank you for your contribution.', 'success');
       await loadCampaigns();
     } catch (error) {
       console.error('Error donating:', error);
-      alert('Error donating: ' + error.message);
+      showModal('Error', 'Error donating: ' + error.message, 'error');
     } finally {
       setLoading(false);
     }
@@ -238,11 +290,11 @@ function App() {
       setLoading(true);
       const tx = await contract.finalizeCampaign(campaignId);
       await tx.wait();
-      alert('Campaign finalized!');
+      showModal('Success!', 'Campaign finalized! Funds have been transferred to the beneficiary.', 'success');
       await loadCampaigns();
     } catch (error) {
       console.error('Error finalizing campaign:', error);
-      alert('Error finalizing: ' + error.message);
+      showModal('Error', 'Error finalizing: ' + error.message, 'error');
     } finally {
       setLoading(false);
     }
@@ -253,21 +305,27 @@ function App() {
       setLoading(true);
       const tx = await contract.claimRefund(campaignId);
       await tx.wait();
-      alert('Refund claimed successfully!');
+      showModal('Success!', 'Refund claimed successfully! Funds have been returned to your wallet.', 'success');
       await loadCampaigns();
     } catch (error) {
       console.error('Error claiming refund:', error);
-      alert('Error claiming refund: ' + error.message);
+      showModal('Error', 'Error claiming refund: ' + error.message, 'error');
     } finally {
       setLoading(false);
     }
   };
 
   const handleDonation = (campaignId) => {
-    const amount = prompt('Enter donation amount in ETH:');
-    if (amount && parseFloat(amount) > 0) {
-      donate(campaignId, amount);
-    }
+    showInputModal(
+      'Make a Donation',
+      'Enter donation amount in ETH:',
+      '0.1',
+      (amount) => {
+        if (amount && parseFloat(amount) > 0) {
+          donate(campaignId, amount);
+        }
+      }
+    );
   };
 
   const getProgressPercentage = (raised, goal) => {
@@ -639,6 +697,27 @@ function App() {
           </section>
         )}
       </div>
+
+      {/* Custom Modal for Notifications */}
+      <Modal
+        isOpen={modal.isOpen}
+        onClose={closeModal}
+        title={modal.title}
+        message={modal.message}
+        type={modal.type}
+        onConfirm={modal.onConfirm}
+      />
+
+      {/* Custom Input Modal for User Input */}
+      <InputModal
+        isOpen={inputModal.isOpen}
+        onClose={closeInputModal}
+        onSubmit={inputModal.onSubmit}
+        title={inputModal.title}
+        label={inputModal.label}
+        placeholder={inputModal.placeholder}
+        type="number"
+      />
     </div>
   );
 }

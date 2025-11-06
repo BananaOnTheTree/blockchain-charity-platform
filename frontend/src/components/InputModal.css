@@ -1,0 +1,40 @@
+.input-modal .modal-body {
+  padding: 24px;
+}
+
+.input-modal .modal-body label {
+  display: block;
+  margin-bottom: 8px;
+  color: #374151;
+  font-weight: 500;
+}
+
+.input-modal .modal-body input {
+  width: 100%;
+  padding: 12px 16px;
+  border: 2px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 16px;
+  transition: all 0.2s;
+  box-sizing: border-box;
+}
+
+.input-modal .modal-body input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.input-modal .modal-body input::placeholder {
+  color: #9ca3af;
+}
+
+.input-modal .btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.input-modal .btn-primary:disabled:hover {
+  transform: none;
+  box-shadow: none;
+}
