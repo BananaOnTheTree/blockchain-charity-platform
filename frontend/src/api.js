@@ -26,6 +26,31 @@ export const campaignAPI = {
     }
   },
 
+  // Get single campaign metadata
+  async getCampaign(campaignId) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/campaigns/${campaignId}`);
+      return await response.json();
+    } catch (error) {
+      console.error('Error fetching campaign:', error);
+      throw error;
+    }
+  },
+
+  // Upload campaign data (FormData)
+  async uploadCampaignData(campaignId, formData) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/campaigns/${campaignId}`, {
+        method: 'POST',
+        body: formData
+      });
+      return await response.json();
+    } catch (error) {
+      console.error('Error uploading campaign data:', error);
+      throw error;
+    }
+  },
+
   // Create or update campaign metadata
   async saveMetadata(campaignId, metadata, imageFile) {
     try {

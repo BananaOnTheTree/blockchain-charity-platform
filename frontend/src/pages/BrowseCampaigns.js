@@ -88,11 +88,11 @@ const BrowseCampaigns = ({
                     <span className="value">{campaign.deadline.toLocaleDateString()}</span>
                   </div>
 
-                  {parseFloat(campaign.userContribution) > 0 && (
-                    <p className="user-contribution">
-                      Your contribution: {campaign.userContribution} ETH
-                    </p>
-                  )}
+                  <p className="user-contribution">
+                    Your contribution: {parseFloat(campaign.userContribution) > 0 
+                      ? `${campaign.userContribution} ETH`
+                      : '0 ETH'}
+                  </p>
 
                   <div className="campaign-actions">
                   {!campaign.finalized && !isDeadlinePassed(campaign.deadline) && (

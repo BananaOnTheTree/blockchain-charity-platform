@@ -30,14 +30,14 @@ export const useCreateCampaign = (contract, showModal, loadCampaigns) => {
       setLoading(true);
       
       const goalInWei = ethers.parseEther(newCampaign.goalAmount);
-      const durationInSeconds = parseInt(newCampaign.durationDays) * 24 * 60 * 60;
+      const durationInDays = parseInt(newCampaign.durationDays);
       
       const tx = await contract.createCampaign(
         newCampaign.beneficiary,
         newCampaign.title,
         newCampaign.description || '',
         goalInWei,
-        durationInSeconds
+        durationInDays
       );
       
       await tx.wait();
