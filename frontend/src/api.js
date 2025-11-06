@@ -96,6 +96,25 @@ export const campaignAPI = {
       console.error('Error adding campaign update:', error);
       return { success: false, error: error.message };
     }
+  },
+
+  // Update campaign (sync from blockchain)
+  async updateCampaign(campaignId, updates) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/campaigns/${campaignId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(updates)
+      });
+
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error updating campaign:', error);
+      return { success: false, error: error.message };
+    }
   }
 };
 

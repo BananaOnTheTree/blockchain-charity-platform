@@ -53,6 +53,12 @@ contract CharityCampaignFactory is Ownable, ReentrancyGuard {
         uint256 amount
     );
 
+    event CampaignEdited(
+        uint256 indexed campaignId,
+        string newTitle,
+        string newDescription
+    );
+
     modifier campaignExists(uint256 _campaignId) {
         require(_campaignId < campaigns.length, "Campaign does not exist");
         _;
@@ -141,6 +147,32 @@ contract CharityCampaignFactory is Ownable, ReentrancyGuard {
         campaign.totalRaised += msg.value;
 
         emit DonationReceived(_campaignId, msg.sender, msg.value);
+    }
+
+    /**
+     * @dev Edit campaign title and description
+     * @param _campaignId ID of the campaign to edit
+     * @param _newTitle New campaign title
+     * @param _newDescription New campaign description
+     */
+    function editCampaign(
+        uint256 _campaignId,
+        string memory _newTitle,
+        string memory _newDescription
+    ) external campaignExists(_campaignId) {
+        Campaign storage campaign = campaigns[_campaignId];
+        
+        require(
+            msg.sender == campaign.creator,
+            "Only campaign creator can edit"
+        );
+        require(!campaign.finalized, "Cannot edit finalized campaign");
+        require(bytes(_newTitle).length > 0, "Title cannot be empty");
+        
+        campaign.title = _newTitle;
+        campaign.description = _newDescription;
+        
+        emit CampaignEdited(_campaignId, _newTitle, _newDescription);
     }
 
     /**

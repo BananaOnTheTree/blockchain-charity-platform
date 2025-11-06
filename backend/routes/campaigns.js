@@ -174,4 +174,75 @@ router.post('/:campaignId/updates', async (req, res) => {
   }
 });
 
+// Edit campaign - only update OFF-CHAIN metadata
+// Note: Title and description are updated on blockchain, not here
+router.put('/:campaignId', async (req, res) => {
+  try {
+    const { campaignId } = req.params;
+    const { 
+      // Accept but ignore blockchain fields
+      title, 
+      description, 
+      // Only update these off-chain fields
+      category,
+      tags,
+      location,
+      country,
+      detailedDescription,
+      story,
+      impactStatement,
+      websiteUrl,
+      contactEmail,
+      socialMedia,
+      milestones,
+      faqs,
+      videoUrl
+    } = req.body;
+
+    // Only store off-chain data
+    const offChainData = {};
+    if (category) offChainData.category = category;
+    if (tags) offChainData.tags = tags;
+    if (location) offChainData.location = location;
+    if (country) offChainData.country = country;
+    if (detailedDescription) offChainData.detailedDescription = detailedDescription;
+    if (story) offChainData.story = story;
+    if (impactStatement) offChainData.impactStatement = impactStatement;
+    if (websiteUrl) offChainData.websiteUrl = websiteUrl;
+    if (contactEmail) offChainData.contactEmail = contactEmail;
+    if (socialMedia) offChainData.socialMedia = socialMedia;
+    if (milestones) offChainData.milestones = milestones;
+    if (faqs) offChainData.faqs = faqs;
+    if (videoUrl) offChainData.videoUrl = videoUrl;
+
+    // Find or create metadata record
+    let metadata = await CampaignMetadata.findOne({
+      where: { campaignId: parseInt(campaignId) }
+    });
+
+    if (!metadata) {
+      // Create new metadata record
+      metadata = await CampaignMetadata.create({
+        campaignId: parseInt(campaignId),
+        ...offChainData
+      });
+    } else {
+      // Update existing record
+      await metadata.update({
+        ...offChainData,
+        updatedAt: new Date()
+      });
+    }
+
+    res.json({ 
+      success: true, 
+      message: 'Campaign metadata updated (blockchain data ignored - use blockchain as source of truth)',
+      data: metadata 
+    });
+  } catch (error) {
+    console.error('Error updating campaign:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 module.exports = router;

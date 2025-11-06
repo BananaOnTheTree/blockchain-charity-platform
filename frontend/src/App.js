@@ -19,7 +19,7 @@ function App() {
   // Custom hooks
   const { modal, inputModal, showModal, closeModal, showInputModal, closeInputModal } = useModals();
   const { contract, account, networkError } = useWeb3(showModal);
-  const { campaigns, loading, loadCampaigns, donate, finalizeCampaign, claimRefund } = 
+  const { campaigns, loading, loadCampaigns, donate, finalizeCampaign, claimRefund, editCampaign } = 
     useCampaignOperations(contract, account, showModal);
   const { newCampaign, setNewCampaign, createCampaign, loading: createLoading } = 
     useCreateCampaign(contract, showModal, loadCampaigns);
@@ -75,6 +75,11 @@ function App() {
       setRefreshKey(prev => prev + 1);
     };
 
+    const handleEditWithRefresh = async (campaignId, newTitle, newDescription) => {
+      await editCampaign(campaignId, newTitle, newDescription);
+      setRefreshKey(prev => prev + 1);
+    };
+
     return (
       <Layout account={account} loading={loading} networkError={networkError}>
         <CampaignDetail
@@ -86,6 +91,7 @@ function App() {
           onDonate={handleDonationWithRefresh}
           onFinalize={handleFinalizeWithRefresh}
           onClaimRefund={handleRefundWithRefresh}
+          onEdit={handleEditWithRefresh}
           showModal={showModal}
           showInputModal={showInputModal}
         />

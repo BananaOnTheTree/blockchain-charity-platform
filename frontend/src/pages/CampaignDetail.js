@@ -10,6 +10,7 @@ const CampaignDetail = ({
   onDonate, 
   onFinalize, 
   onClaimRefund,
+  onEdit,
   showModal,
   showInputModal 
 }) => {
@@ -21,6 +22,9 @@ const CampaignDetail = ({
   const [activeTab, setActiveTab] = useState('overview');
   const [selectedImage, setSelectedImage] = useState(0);
   const [leaderboard, setLeaderboard] = useState([]);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedTitle, setEditedTitle] = useState('');
+  const [editedDescription, setEditedDescription] = useState('');
 
   const loadCampaignData = useCallback(async () => {
     if (!contract || !account) {
@@ -106,6 +110,33 @@ const CampaignDetail = ({
     await loadCampaignData(); // Reload after refund
   };
 
+  const handleEditClick = () => {
+    setEditedTitle(campaign.title);
+    setEditedDescription(campaign.description);
+    setIsEditing(true);
+  };
+
+  const handleCancelEdit = () => {
+    setIsEditing(false);
+    setEditedTitle('');
+    setEditedDescription('');
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editedTitle.trim()) {
+      showModal('Error', 'Title cannot be empty', 'error');
+      return;
+    }
+
+    try {
+      await onEdit(campaignId, editedTitle, editedDescription);
+      setIsEditing(false);
+      await loadCampaignData(); // Reload after edit
+    } catch (error) {
+      console.error('Error editing campaign:', error);
+    }
+  };
+
   if (loading) {
     return (
       <div className="campaign-detail">
@@ -147,7 +178,18 @@ const CampaignDetail = ({
     : 0;
   const goalReached = Number(campaign.totalRaised) >= Number(campaign.goal);
   const isExpired = Number(campaign.deadline) * 1000 < Date.now();
-  const canFinalize = (account === campaign.creator || account === campaign.beneficiary) 
+  
+  // Debug logging
+  console.log('🔍 Account check:', {
+    account: account,
+    creator: campaign.creator,
+    accountLower: account?.toLowerCase(),
+    creatorLower: campaign.creator?.toLowerCase(),
+    isMatch: account?.toLowerCase() === campaign.creator?.toLowerCase(),
+    finalized: campaign.finalized
+  });
+  
+  const canFinalize = (account?.toLowerCase() === campaign.creator?.toLowerCase() || account?.toLowerCase() === campaign.beneficiary?.toLowerCase()) 
     && !campaign.finalized 
     && (goalReached || isExpired);
   const canClaimRefund = campaign.refundEnabled 
@@ -266,6 +308,11 @@ const CampaignDetail = ({
             💝 Donate Now
           </button>
         )}
+        {account?.toLowerCase() === campaign.creator?.toLowerCase() && !campaign.finalized && (
+          <button className="btn-secondary" onClick={handleEditClick}>
+            ✏️ Edit Campaign
+          </button>
+        )}
         {canFinalize && (
           <button className="btn-success" onClick={handleFinalizeClick}>
             ✅ Finalize Campaign
@@ -291,12 +338,6 @@ const CampaignDetail = ({
           onClick={() => setActiveTab('leaderboard')}
         >
           🏆 Leaderboard
-        </button>
-        <button 
-          className={activeTab === 'updates' ? 'tab active' : 'tab'}
-          onClick={() => setActiveTab('updates')}
-        >
-          📢 Updates
         </button>
         <button 
           className={activeTab === 'details' ? 'tab active' : 'tab'}
@@ -395,29 +436,6 @@ const CampaignDetail = ({
           </div>
         )}
 
-        {activeTab === 'updates' && (
-          <div className="updates-tab">
-            <h2>Campaign Updates</h2>
-            {metadata?.updates && metadata.updates.length > 0 ? (
-              <div className="updates-list">
-                {metadata.updates.map((update, idx) => (
-                  <div key={idx} className="update-item">
-                    <div className="update-header">
-                      <h3>{update.title}</h3>
-                      <span className="update-date">
-                        {new Date(update.timestamp).toLocaleDateString()}
-                      </span>
-                    </div>
-                    <p>{update.content}</p>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="no-updates">No updates yet</p>
-            )}
-          </div>
-        )}
-
         {activeTab === 'details' && (
           <div className="details-tab">
             <h2>Campaign Details</h2>
@@ -462,6 +480,53 @@ const CampaignDetail = ({
           </div>
         )}
       </div>
+
+      {/* Edit Campaign Modal */}
+      {isEditing && (
+        <div className="modal-overlay" onClick={handleCancelEdit}>
+          <div className="modal-content edit-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>✏️ Edit Campaign</h2>
+              <button className="close-button" onClick={handleCancelEdit}>×</button>
+            </div>
+            <div className="modal-body">
+              <div className="form-group">
+                <label htmlFor="edit-title">Campaign Title *</label>
+                <input
+                  id="edit-title"
+                  type="text"
+                  value={editedTitle}
+                  onChange={(e) => setEditedTitle(e.target.value)}
+                  placeholder="Enter campaign title"
+                  maxLength="100"
+                />
+              </div>
+              <div className="form-group">
+                <label htmlFor="edit-description">Description</label>
+                <textarea
+                  id="edit-description"
+                  value={editedDescription}
+                  onChange={(e) => setEditedDescription(e.target.value)}
+                  placeholder="Enter campaign description"
+                  rows="6"
+                  maxLength="1000"
+                />
+              </div>
+              <div className="form-note">
+                Note: You can only edit the title and description. Goal, deadline, and beneficiary cannot be changed.
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="btn-cancel" onClick={handleCancelEdit}>
+                Cancel
+              </button>
+              <button className="btn-save" onClick={handleSaveEdit}>
+                Save Changes
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

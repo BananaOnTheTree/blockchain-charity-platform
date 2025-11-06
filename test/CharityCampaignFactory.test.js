@@ -101,6 +101,89 @@ describe("CharityCampaignFactory", function () {
     });
   });
 
+  describe("Campaign Editing", function () {
+    beforeEach(async function () {
+      // Create a test campaign
+      await factory.createCampaign(
+        beneficiary.address,
+        "Original Title",
+        "Original Description",
+        ethers.parseEther("10"),
+        30
+      );
+    });
+
+    it("Should allow creator to edit campaign title and description", async function () {
+      const tx = await factory.editCampaign(
+        0,
+        "Updated Title",
+        "Updated Description"
+      );
+
+      await expect(tx)
+        .to.emit(factory, "CampaignEdited")
+        .withArgs(0, "Updated Title", "Updated Description");
+
+      const campaign = await factory.getCampaign(0);
+      expect(campaign.title).to.equal("Updated Title");
+      expect(campaign.description).to.equal("Updated Description");
+    });
+
+    it("Should reject edit from non-creator", async function () {
+      await expect(
+        factory.connect(donor1).editCampaign(
+          0,
+          "Hacked Title",
+          "Hacked Description"
+        )
+      ).to.be.revertedWith("Only campaign creator can edit");
+    });
+
+    it("Should reject empty title", async function () {
+      await expect(
+        factory.editCampaign(0, "", "New Description")
+      ).to.be.revertedWith("Title cannot be empty");
+    });
+
+    it("Should reject editing finalized campaign", async function () {
+      // Fast forward past deadline
+      await time.increase(31 * 24 * 60 * 60);
+      
+      // Finalize the campaign
+      await factory.finalizeCampaign(0);
+
+      await expect(
+        factory.editCampaign(0, "New Title", "New Description")
+      ).to.be.revertedWith("Cannot edit finalized campaign");
+    });
+
+    it("Should reject editing non-existent campaign", async function () {
+      await expect(
+        factory.editCampaign(999, "Title", "Description")
+      ).to.be.revertedWith("Campaign does not exist");
+    });
+
+    it("Should allow editing with donations already received", async function () {
+      // Make a donation first
+      await factory.connect(donor1).donate(0, { value: ethers.parseEther("1") });
+
+      // Should still be able to edit
+      const tx = await factory.editCampaign(
+        0,
+        "Updated After Donation",
+        "Updated Description"
+      );
+
+      await expect(tx)
+        .to.emit(factory, "CampaignEdited")
+        .withArgs(0, "Updated After Donation", "Updated Description");
+
+      // Verify donation is still recorded
+      const contribution = await factory.getContribution(0, donor1.address);
+      expect(contribution).to.equal(ethers.parseEther("1"));
+    });
+  });
+
   describe("Donations", function () {
     beforeEach(async function () {
       await factory.createCampaign(
