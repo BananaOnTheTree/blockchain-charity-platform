@@ -20,6 +20,7 @@ const CampaignDetail = ({
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState('overview');
   const [selectedImage, setSelectedImage] = useState(0);
+  const [leaderboard, setLeaderboard] = useState([]);
 
   const loadCampaignData = useCallback(async () => {
     if (!contract || !account) {
@@ -50,6 +51,21 @@ const CampaignDetail = ({
       // Load user's donation
       const userDonation = await contract.getContribution(campaignId, account);
       setDonation(userDonation);
+
+      // Load leaderboard (top 10 donors)
+      try {
+        const [donors, amounts] = await contract.getTopDonors(campaignId, 10);
+        const leaderboardData = donors.map((donor, index) => ({
+          rank: index + 1,
+          address: donor,
+          amount: amounts[index],
+          isCurrentUser: donor.toLowerCase() === account.toLowerCase()
+        }));
+        setLeaderboard(leaderboardData);
+      } catch (err) {
+        console.log('Error loading leaderboard:', err);
+        setLeaderboard([]);
+      }
 
       // Load metadata from backend
       try {
@@ -271,6 +287,12 @@ const CampaignDetail = ({
           📋 Overview
         </button>
         <button 
+          className={activeTab === 'leaderboard' ? 'tab active' : 'tab'}
+          onClick={() => setActiveTab('leaderboard')}
+        >
+          🏆 Leaderboard
+        </button>
+        <button 
           className={activeTab === 'updates' ? 'tab active' : 'tab'}
           onClick={() => setActiveTab('updates')}
         >
@@ -329,6 +351,45 @@ const CampaignDetail = ({
                     </a>
                   )}
                 </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === 'leaderboard' && (
+          <div className="leaderboard-tab">
+            <h2>🏆 Top Donors</h2>
+            {leaderboard.length > 0 ? (
+              <div className="leaderboard-list">
+                {leaderboard.map((donor) => (
+                  <div 
+                    key={donor.rank} 
+                    className={`leaderboard-item ${donor.isCurrentUser ? 'current-user' : ''} ${donor.rank <= 3 ? `rank-${donor.rank}` : ''}`}
+                  >
+                    <div className="rank-badge">
+                      {donor.rank === 1 && <span className="medal gold">🥇</span>}
+                      {donor.rank === 2 && <span className="medal silver">🥈</span>}
+                      {donor.rank === 3 && <span className="medal bronze">🥉</span>}
+                      {donor.rank > 3 && <span className="rank-number">#{donor.rank}</span>}
+                    </div>
+                    <div className="donor-info">
+                      <span className="donor-address">
+                        {donor.address.substring(0, 10)}...{donor.address.substring(38)}
+                        {donor.isCurrentUser && <span className="you-badge">You</span>}
+                      </span>
+                    </div>
+                    <div className="donor-amount">
+                      <span className="amount">{ethers.formatEther(donor.amount)} ETH</span>
+                      <span className="percentage">
+                        {((Number(ethers.formatEther(donor.amount)) / Number(ethers.formatEther(campaign.totalRaised))) * 100).toFixed(1)}%
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="no-donations">
+                <p>🎁 No donations yet. Be the first to support this campaign!</p>
               </div>
             )}
           </div>

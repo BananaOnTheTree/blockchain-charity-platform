@@ -24,6 +24,7 @@ contract CharityCampaignFactory is Ownable, ReentrancyGuard {
     Campaign[] public campaigns;
     mapping(uint256 => mapping(address => uint256)) public contributions;
     mapping(address => uint256[]) public userCampaigns;
+    mapping(uint256 => address[]) public campaignDonors;
 
     event CampaignCreated(
         uint256 indexed campaignId,
@@ -130,6 +131,11 @@ contract CharityCampaignFactory is Ownable, ReentrancyGuard {
         require(msg.value > 0, "Donation must be greater than 0");
 
         Campaign storage campaign = campaigns[_campaignId];
+        
+        // Add donor to the list if this is their first contribution
+        if (contributions[_campaignId][msg.sender] == 0) {
+            campaignDonors[_campaignId].push(msg.sender);
+        }
         
         contributions[_campaignId][msg.sender] += msg.value;
         campaign.totalRaised += msg.value;
@@ -265,5 +271,65 @@ contract CharityCampaignFactory is Ownable, ReentrancyGuard {
         returns (uint256[] memory)
     {
         return userCampaigns[_creator];
+    }
+
+    /**
+     * @dev Get top donors for a campaign (leaderboard)
+     * @param _campaignId Campaign ID
+     * @param _limit Maximum number of top donors to return
+     */
+    function getTopDonors(uint256 _campaignId, uint256 _limit)
+        external
+        view
+        campaignExists(_campaignId)
+        returns (address[] memory donors, uint256[] memory amounts)
+    {
+        address[] memory allDonors = campaignDonors[_campaignId];
+        uint256 donorCount = allDonors.length;
+        
+        if (donorCount == 0) {
+            return (new address[](0), new uint256[](0));
+        }
+        
+        // Limit to actual donor count
+        uint256 resultSize = donorCount < _limit ? donorCount : _limit;
+        
+        // Create temporary arrays for sorting
+        address[] memory tempDonors = new address[](donorCount);
+        uint256[] memory tempAmounts = new uint256[](donorCount);
+        
+        // Copy donors and their contributions
+        for (uint256 i = 0; i < donorCount; i++) {
+            tempDonors[i] = allDonors[i];
+            tempAmounts[i] = contributions[_campaignId][allDonors[i]];
+        }
+        
+        // Bubble sort (descending order by amount)
+        for (uint256 i = 0; i < donorCount - 1; i++) {
+            for (uint256 j = 0; j < donorCount - i - 1; j++) {
+                if (tempAmounts[j] < tempAmounts[j + 1]) {
+                    // Swap amounts
+                    uint256 tempAmount = tempAmounts[j];
+                    tempAmounts[j] = tempAmounts[j + 1];
+                    tempAmounts[j + 1] = tempAmount;
+                    
+                    // Swap donors
+                    address tempDonor = tempDonors[j];
+                    tempDonors[j] = tempDonors[j + 1];
+                    tempDonors[j + 1] = tempDonor;
+                }
+            }
+        }
+        
+        // Return top N donors
+        donors = new address[](resultSize);
+        amounts = new uint256[](resultSize);
+        
+        for (uint256 i = 0; i < resultSize; i++) {
+            donors[i] = tempDonors[i];
+            amounts[i] = tempAmounts[i];
+        }
+        
+        return (donors, amounts);
     }
 }
