@@ -1,7 +1,7 @@
 # Copilot Instructions — Blockchain Charity Platform
 
 ## Project Overview
-This is a decentralized charity fundraising platform on Ethereum. Campaign creators set goals and deadlines; donors contribute ETH. If the goal is reached, funds transfer to the beneficiary. If not, donors can claim refunds.
+This is a decentralized charity fundraising platform on Ethereum (local development only). Campaign creators set goals and deadlines; donors contribute ETH. If the goal is reached, funds transfer to the beneficiary. If not, donors can claim refunds.
 
 ## Architecture
 
@@ -19,7 +19,7 @@ This is a decentralized charity fundraising platform on Ethereum. Campaign creat
 - Environment variable: `REACT_APP_CONTRACT_ADDRESS` for deployed contract address
 
 ### Deployment Info (`deployments/`)
-- Auto-generated JSON files per network (e.g., `localhost.json`, `sepolia.json`)
+- Auto-generated JSON files per network (e.g., `localhost.json`)
 - Contains: contract address, network name, deployment timestamp
 
 ## Developer Workflows
@@ -36,7 +36,6 @@ npm run compile                # Compile contracts → artifacts/
 npm test                       # Run comprehensive test suite (Chai + Hardhat helpers)
 npm run node                   # Start local Hardhat node (localhost:8545)
 npm run deploy:local           # Deploy to local node
-npm run deploy:sepolia         # Deploy to Sepolia testnet (requires .env config)
 ```
 
 ### Frontend Development
@@ -56,9 +55,8 @@ npm start                      # Start React dev server on :3000
 ## Project-Specific Conventions
 
 ### Environment Variables
-- **Root `.env`**: `PRIVATE_KEY`, `SEPOLIA_RPC_URL`, `ETHERSCAN_API_KEY`
 - **Frontend `.env`**: `REACT_APP_CONTRACT_ADDRESS`
-- Never commit `.env` — use `.env.example` templates
+- Never commit `.env` — use `.env.example` template (frontend only)
 
 ### File Naming
 - Solidity: PascalCase (e.g., `CharityCampaignFactory.sol`)
@@ -84,9 +82,8 @@ npm start                      # Start React dev server on :3000
 - **Ethers.js v6**: Frontend uses `BrowserProvider` (not legacy `Web3Provider`)
 
 ### Network Configuration (`hardhat.config.js`)
-- Localhost: `http://127.0.0.1:8545`
-- Sepolia testnet: RPC from `.env` (Alchemy/Infura)
-- Etherscan verification enabled if `ETHERSCAN_API_KEY` provided
+- Localhost: `http://127.0.0.1:8545` (Chain ID: 31337)
+- No testnet configuration (local development only)
 
 ### Frontend-Contract Integration
 - ABI must be manually copied after compilation
@@ -106,9 +103,8 @@ npm start                      # Start React dev server on :3000
 
 ### Changing Deployment Flow
 1. Edit `scripts/deploy.js` — deployment happens in `main()` function
-2. Contract address saved to `deployments/<network>.json` automatically
+2. Contract address saved to `deployments/localhost.json` automatically
 3. Update frontend `.env` with new address
-4. If constructor args change, update `verify:verify` arguments array
 
 ### Adding New Functions
 1. Write function in contract with proper modifiers (`campaignExists`, `nonReentrant`, etc.)
@@ -121,9 +117,10 @@ npm start                      # Start React dev server on :3000
 
 - **`contracts/CharityCampaignFactory.sol`**: All campaign logic
 - **`hardhat.config.js`**: Network settings, compiler version (0.8.20)
-- **`scripts/deploy.js`**: Deployment + verification + saves address to JSON
-- **`test/CharityCampaignFactory.test.js`**: Full test suite
-- **`frontend/src/App.js`**: React UI with Web3 integration
+- **`scripts/deploy.js`**: Deployment + saves address to JSON
+- **`test/CharityCampaignFactory.test.js`**: Full test suite (22 tests)
+- **`frontend/src/App.js`**: React UI with Web3 integration (navigation menu)
+- **`frontend/src/App.css`**: Modern styling with animations
 - **`README.md`**: User-facing documentation and setup guide
 
 ## Anti-Patterns to Avoid
@@ -131,7 +128,7 @@ npm start                      # Start React dev server on :3000
 - Don't use `transfer()` or `send()` for ETH transfers (use `call` with gas forwarding)
 - Don't modify state after external calls (reentrancy risk)
 - Don't forget to update deployment address in frontend after redeployment
-- Don't commit private keys or RPC URLs to git
+- Don't commit frontend/.env to git
 - Don't skip copying ABI to frontend after contract changes
 
 ## Quick Reference Commands
@@ -142,10 +139,11 @@ npm install && cd frontend && npm install && cd ..
 npm run compile
 npm test
 npm run node                                      # Terminal 1
-npm run deploy:local                              # Terminal 2
+npm run deploy:local                              # Terminal 2 - copy address
 cp artifacts/contracts/CharityCampaignFactory.sol/CharityCampaignFactory.json frontend/src/
 echo "REACT_APP_CONTRACT_ADDRESS=<addr>" > frontend/.env
 cd frontend && npm start                          # Terminal 3
 ```
 
 For detailed setup and usage, see `README.md`.
+
