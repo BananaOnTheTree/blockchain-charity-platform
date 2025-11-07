@@ -10,7 +10,7 @@ body {
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
   min-height: 100vh;
   position: relative;
   overflow-x: hidden;
@@ -81,7 +81,7 @@ body::before {
 
 .App-header h1 {
   font-size: 3rem;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -132,7 +132,7 @@ body::before {
   cursor: pointer;
   font-size: 1rem;
   font-weight: 600;
-  color: #667eea;
+  color: #11998e;
   transition: all 0.3s ease;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   position: relative;
@@ -140,35 +140,21 @@ body::before {
 }
 
 .nav-btn::before {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 0;
-  height: 0;
-  border-radius: 50%;
-  background: rgba(102, 126, 234, 0.1);
-  transition: width 0.6s, height 0.6s, top 0.6s, left 0.6s;
-  transform: translate(-50%, -50%);
-}
-
-.nav-btn:hover::before {
-  width: 300px;
-  height: 300px;
+  display: none;
 }
 
 .nav-btn:hover {
   transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(102, 126, 234, 0.3);
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  box-shadow: 0 6px 16px rgba(17, 153, 142, 0.3);
+  background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
   color: white;
 }
 
 .nav-btn.active {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
   color: white;
-  border-color: #764ba2;
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+  border-color: #38ef7d;
+  box-shadow: 0 4px 12px rgba(17, 153, 142, 0.4);
   transform: translateY(-2px);
 }
 
@@ -219,7 +205,7 @@ body::before {
 }
 
 .about-card h3 {
-  color: #667eea;
+  color: #11998e;
   margin-bottom: 1rem;
   font-size: 1.5rem;
   font-weight: 700;
@@ -247,7 +233,7 @@ body::before {
 }
 
 .about-card ul li strong {
-  color: #667eea;
+  color: #11998e;
   font-weight: 600;
 }
 
@@ -288,7 +274,7 @@ body::before {
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
   z-index: 1000;
   font-weight: bold;
-  color: #667eea;
+  color: #11998e;
 }
 
 .network-error {
@@ -321,7 +307,7 @@ body::before {
 }
 
 .create-campaign h2 {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -339,7 +325,7 @@ body::before {
   left: 0;
   width: 60px;
   height: 4px;
-  background: linear-gradient(90deg, #667eea, #764ba2);
+  background: linear-gradient(90deg, #11998e, #38ef7d);
   border-radius: 2px;
   animation: expandWidth 0.6s ease-out 0.3s both;
 }
@@ -368,7 +354,7 @@ body::before {
 .create-campaign input:focus,
 .create-campaign textarea:focus {
   outline: none;
-  border-color: #667eea;
+  border-color: #11998e;
   box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1);
   transform: translateY(-2px);
 }
@@ -381,7 +367,7 @@ body::before {
 
 .create-campaign button {
   padding: 1.25rem;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
   color: white;
   border: none;
   border-radius: 12px;
@@ -444,8 +430,8 @@ body::before {
 }
 
 .campaign-card {
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0.9) 100%);
-  padding: 1.25rem;
+  background: linear-gradient(135deg, #0d7377 0%, #14FFEC 100%);
+  padding: 0;
   border-radius: 16px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
   transition: transform 0.3s ease, box-shadow 0.3s ease;
@@ -459,12 +445,30 @@ body::before {
   -webkit-font-smoothing: subpixel-antialiased;
   display: flex;
   flex-direction: column;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+/* Add dark overlay to default gradient background */
+.campaign-card::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(to bottom,
+    rgba(0, 0, 0, 0.3) 0%,
+    rgba(0, 0, 0, 0.5) 50%,
+    rgba(0, 0, 0, 0.7) 100%);
+  z-index: 0;
+  pointer-events: none;
 }
 
 .campaign-content {
   display: flex;
   flex-direction: column;
   flex: 1;
+  padding: 1.25rem;
 }
 
 .campaign-header {
@@ -472,17 +476,21 @@ body::before {
   margin-bottom: 0.75rem;
   display: flex;
   flex-direction: column;
+  position: relative;
+  z-index: 2;
 }
 
 .campaign-metrics {
   margin-top: auto;
+  position: relative;
+  z-index: 2;
 }
 
 .view-detail-btn {
   position: absolute;
   top: 12px;
   right: 12px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
   color: white;
   padding: 10px 16px;
   border-radius: 20px;
@@ -521,7 +529,7 @@ body::before {
   position: absolute;
   top: 12px;
   right: 12px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
   color: white;
   padding: 10px 16px;
   border-radius: 20px;
@@ -570,7 +578,7 @@ body::before {
   left: 0;
   width: 100%;
   height: 4px;
-  background: linear-gradient(90deg, #667eea, #764ba2);
+  background: linear-gradient(90deg, #11998e, #38ef7d);
   transform: scaleX(0);
   transform-origin: left;
   transition: transform 0.4s ease;
@@ -581,10 +589,8 @@ body::before {
 }
 
 .campaign-card h3 {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  color: white;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
   margin-bottom: 0.5rem;
   font-size: 1.35rem;
   font-weight: 700;
@@ -592,7 +598,8 @@ body::before {
 }
 
 .campaign-card .description {
-  color: #666;
+  color: rgba(255, 255, 255, 0.95);
+  text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.8);
   margin-bottom: 0.5rem;
   line-height: 1.4;
   font-size: 0.9rem;
@@ -606,7 +613,9 @@ body::before {
 
 .campaign-location {
   font-size: 0.85rem;
-  color: #888;
+  color: rgba(255, 255, 255, 1);
+  text-shadow: 2px 2px 6px rgba(0, 0, 0, 1);
+  font-weight: 600;
   margin-bottom: 0.5rem;
   display: block;
   min-height: 1.5rem;
@@ -623,29 +632,33 @@ body::before {
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
-  padding: 0.5rem;
-  background: rgba(102, 126, 234, 0.05);
-  border-radius: 8px;
+  padding: 0.75rem;
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(10px);
+  border-radius: 10px;
 }
 
 .stat .label {
-  color: #888;
+  color: #333;
   font-weight: 500;
   font-size: 0.75rem;
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  text-shadow: none;
 }
 
 .stat .value {
-  color: #333;
+  color: #000;
   font-weight: bold;
   font-size: 1rem;
+  text-shadow: none;
 }
 
 .progress-bar {
   width: 100%;
   height: 28px;
-  background: #f0f0f0;
+  background: rgba(255, 255, 255, 0.45);
+  backdrop-filter: blur(10px);
   border-radius: 10px;
   overflow: hidden;
   margin: 1rem 0 0.75rem 0;
@@ -676,7 +689,7 @@ body::before {
 
 .progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(90deg, #11998e 0%, #38ef7d 100%);
   transition: width 1s cubic-bezier(0.4, 0, 0.2, 1);
   position: absolute;
   left: 0;
@@ -697,21 +710,21 @@ body::before {
 .progress-text {
   position: relative;
   z-index: 3;
-  color: #333 !important;
+  color: #000 !important;
   font-size: 0.8rem;
   font-weight: 700;
-  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.8);
+  text-shadow: none;
 }
 
 .user-contribution {
   background: linear-gradient(135deg, #ebf4ff 0%, #dbeafe 100%);
   padding: 0.6rem 0.85rem;
   border-radius: 10px;
-  color: #667eea;
+  color: #000;
   font-weight: bold;
   text-align: center;
   margin: 1rem 0;
-  border: 2px solid rgba(102, 126, 234, 0.2);
+  border: 2px solid rgba(17, 153, 142, 0.2);
   animation: pulse 2s ease-in-out infinite;
   font-size: 0.9rem;
 }
@@ -760,7 +773,7 @@ body::before {
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
   color: white;
   box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
 }
@@ -836,11 +849,29 @@ body::before {
 
 /* Campaign Image Styles */
 .campaign-image {
+  position: absolute;
+  top: 0;
+  left: 0;
   width: 100%;
-  height: 200px;
+  height: 100%; /* Cover entire card */
   overflow: hidden;
-  border-radius: 12px 12px 0 0;
-  margin: -2rem -2rem 1.5rem -2rem;
+  border-radius: 16px;
+  z-index: 0;
+  margin: 0;
+}
+
+.campaign-image::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(to bottom,
+    rgba(0, 0, 0, 0.4) 0%,
+    rgba(0, 0, 0, 0.6) 50%,
+    rgba(0, 0, 0, 0.8) 100%);
+  z-index: 1;
 }
 
 .campaign-image img {
@@ -856,12 +887,13 @@ body::before {
 
 .campaign-content {
   position: relative;
+  z-index: 2;
 }
 
 .campaign-category {
   display: inline-block;
   padding: 0.4rem 0.8rem;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
   color: white;
   border-radius: 20px;
   font-size: 0.85rem;
@@ -875,7 +907,9 @@ body::before {
 }
 
 .campaign-location {
-  color: #666;
+  color: rgba(255, 255, 255, 1);
+  text-shadow: 2px 2px 6px rgba(0, 0, 0, 1);
+  font-weight: 600;
   font-size: 0.9rem;
   margin-bottom: 1rem;
 }
@@ -895,7 +929,7 @@ select {
 
 select:focus {
   outline: none;
-  border-color: #667eea;
+  border-color: #11998e;
   box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
 }
 
@@ -921,14 +955,14 @@ select:focus {
 }
 
 .file-input-wrapper input[type="file"]:hover {
-  border-color: #667eea;
+  border-color: #11998e;
   background: rgba(102, 126, 234, 0.05);
 }
 
 .file-name {
   display: block;
   margin-top: 0.5rem;
-  color: #667eea;
+  color: #11998e;
   font-size: 0.9rem;
 }
 
