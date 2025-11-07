@@ -9,7 +9,6 @@ import Layout from './components/Layout';
 import BrowseCampaigns from './pages/BrowseCampaigns';
 import CreateCampaign from './pages/CreateCampaign';
 import MyCampaigns from './pages/MyCampaigns';
-import About from './pages/About';
 import { useWeb3 } from './hooks/useWeb3';
 import { useModals } from './hooks/useModals';
 import { useCampaignOperations } from './hooks/useCampaignOperations';
@@ -163,12 +162,6 @@ function App() {
             />
             <Modal {...modal} onClose={closeModal} />
             <InputModal {...inputModal} onClose={closeInputModal} type="number" />
-          </Layout>
-        } />
-
-        <Route path="/about" element={
-          <Layout account={account} loading={loading} networkError={networkError}>
-            <About />
           </Layout>
         } />
 

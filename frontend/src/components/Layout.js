@@ -33,11 +33,6 @@ const Layout = ({ account, loading, networkError, children }) => {
             📋 My Campaigns
           </button>
         </Link>
-        <Link to="/about">
-          <button className={isActive('/about') ? 'nav-btn active' : 'nav-btn'}>
-            ℹ️ About
-          </button>
-        </Link>
       </nav>
 
       {loading && <div className="loading">Processing transaction...</div>}
@@ -54,6 +49,53 @@ const Layout = ({ account, loading, networkError, children }) => {
       <div className="container">
         {children}
       </div>
+
+      <footer className="about-footer">
+        <section className="about-section">
+          <div className="divider-icon">✨</div>
+          <h2>About Charity Campaign Platform</h2>
+          <div className="about-content">
+            <div className="about-card">
+              <h3>🎯 Our Mission</h3>
+              <p>
+                We provide a transparent, decentralized platform for charity fundraising
+                powered by blockchain technology. Every donation is traceable, secure, and
+                verifiable on the Ethereum blockchain.
+              </p>
+            </div>
+            
+            <div className="about-card">
+              <h3>🔒 How It Works</h3>
+              <ul>
+                <li><strong>Create:</strong> Set up a campaign with a goal and deadline</li>
+                <li><strong>Donate:</strong> Contributors send ETH directly to the campaign</li>
+                <li><strong>Finalize:</strong> If goal is met, funds go to beneficiary</li>
+                <li><strong>Refund:</strong> If goal isn't met, donors get their money back</li>
+              </ul>
+            </div>
+
+            <div className="about-card">
+              <h3>✨ Key Features</h3>
+              <ul>
+                <li>100% transparent - all transactions on-chain</li>
+                <li>No intermediaries - direct peer-to-peer transfers</li>
+                <li>Automatic refunds for unsuccessful campaigns</li>
+                <li>Built with audited OpenZeppelin smart contracts</li>
+              </ul>
+            </div>
+
+            <div className="about-card">
+              <h3>🛠️ Technology Stack</h3>
+              <p>
+                <strong>Smart Contracts:</strong> Solidity 0.8.20 with OpenZeppelin libraries<br/>
+                <strong>Frontend:</strong> React with Ethers.js v6<br/>
+                <strong>Network:</strong> Ethereum (Local Hardhat / Sepolia Testnet)<br/>
+                <strong>Wallet:</strong> MetaMask integration
+              </p>
+            </div>
+          </div>
+        </section>
+      </footer>
     </div>
   );
 };

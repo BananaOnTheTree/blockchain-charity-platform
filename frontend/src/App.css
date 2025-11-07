@@ -966,3 +966,47 @@ select:focus {
   font-size: 0.9rem;
 }
 
+/* About Footer Styles */
+.about-footer {
+  margin-top: 2rem;
+  padding-top: 0;
+  background: linear-gradient(135deg, #0f7c6f 0%, #2dbf7d 100%);
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.15);
+  border-top: 3px solid rgba(255, 255, 255, 0.4);
+}
+
+.about-footer .about-section {
+  padding: 3rem 2rem;
+  position: relative;
+}
+
+.about-footer .about-section .divider-icon {
+  position: relative;
+  display: inline-block;
+  font-size: 2.5rem;
+  color: white;
+  text-shadow: 0 0 20px rgba(255, 255, 255, 0.8),
+               0 0 30px rgba(56, 239, 125, 0.6);
+  animation: pulse 2s ease-in-out infinite;
+  filter: drop-shadow(0 2px 8px rgba(17, 153, 142, 0.4));
+  margin-bottom: 1rem;
+  text-align: center;
+  width: 100%;
+}
+
+.about-footer .about-section h2 {
+  font-size: 2rem;
+  margin-bottom: 1.5rem;
+  margin-top: 0;
+}
+
+.about-footer .about-content {
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.5rem;
+}
+
+.about-footer .about-card {
+  background: rgba(255, 255, 255, 0.95);
+}
+
+
