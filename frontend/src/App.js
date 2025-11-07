@@ -4,6 +4,7 @@ import './App.css';
 import Modal from './components/Modal';
 import InputModal from './components/InputModal';
 import CampaignDetail from './pages/CampaignDetail';
+import EditCampaign from './pages/EditCampaign';
 import Layout from './components/Layout';
 import BrowseCampaigns from './pages/BrowseCampaigns';
 import CreateCampaign from './pages/CreateCampaign';
@@ -101,6 +102,22 @@ function App() {
     );
   };
 
+  // Wrapper component for edit campaign page
+  const EditCampaignPage = () => {
+    const { campaignId } = useParams();
+    const navigate = useNavigate();
+
+    return (
+      <EditCampaign
+        campaignId={parseInt(campaignId)}
+        contract={contract}
+        account={account}
+        showModal={showModal}
+        onCancel={() => navigate(`/campaign/${campaignId}`)}
+      />
+    );
+  };
+
   return (
     <Router>
       <Routes>
@@ -156,6 +173,13 @@ function App() {
         } />
 
         <Route path="/campaign/:campaignId" element={<CampaignDetailPage />} />
+        
+        <Route path="/campaign/:campaignId/edit" element={
+          <Layout account={account} loading={loading} networkError={networkError}>
+            <EditCampaignPage />
+            <Modal {...modal} onClose={closeModal} />
+          </Layout>
+        } />
       </Routes>
     </Router>
   );

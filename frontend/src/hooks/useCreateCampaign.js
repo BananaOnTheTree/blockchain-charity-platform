@@ -29,6 +29,24 @@ export const useCreateCampaign = (contract, showModal, loadCampaigns) => {
     try {
       setLoading(true);
       
+      // Step 1: Create database record first and get DB ID
+      const dbMetadata = {
+        category: newCampaign.category || null,
+        location: newCampaign.location || null,
+        detailedDescription: newCampaign.detailedDescription || null,
+        websiteUrl: newCampaign.websiteUrl || null
+      };
+      
+      const dbResponse = await campaignAPI.initCampaign(dbMetadata);
+      
+      if (!dbResponse.success) {
+        throw new Error('Failed to create database record');
+      }
+      
+      const dbId = dbResponse.dbId;
+      console.log('Created database record with ID:', dbId);
+      
+      // Step 2: Create blockchain campaign with DB ID
       const goalInWei = ethers.parseEther(newCampaign.goalAmount);
       const durationInDays = parseInt(newCampaign.durationDays);
       
@@ -37,25 +55,26 @@ export const useCreateCampaign = (contract, showModal, loadCampaigns) => {
         newCampaign.title,
         newCampaign.description || '',
         goalInWei,
-        durationInDays
+        durationInDays,
+        dbId  // Pass database ID to smart contract
       );
       
-      await tx.wait();
+      const receipt = await tx.wait();
       const campaignId = Number(await contract.getCampaignCount()) - 1;
+      console.log('Created blockchain campaign with ID:', campaignId);
       
-      // Upload metadata and image if provided
-      if (newCampaign.imageFile || newCampaign.category || newCampaign.location) {
+      // Step 3: Link the database record to the blockchain campaign ID
+      await campaignAPI.linkCampaign(dbId, campaignId);
+      console.log('Linked DB record to blockchain campaign');
+      
+      // Step 4: Upload image if provided
+      if (newCampaign.imageFile) {
         const formData = new FormData();
-        if (newCampaign.imageFile) formData.append('image', newCampaign.imageFile);
-        if (newCampaign.category) formData.append('category', newCampaign.category);
-        if (newCampaign.location) formData.append('location', newCampaign.location);
-        if (newCampaign.detailedDescription) formData.append('detailedDescription', newCampaign.detailedDescription);
-        if (newCampaign.websiteUrl) formData.append('websiteUrl', newCampaign.websiteUrl);
-
+        formData.append('image', newCampaign.imageFile);
         await campaignAPI.uploadCampaignData(campaignId, formData);
       }
       
-      showModal('Success!', 'Campaign created successfully!', 'success');
+      showModal('Success!', 'Campaign created successfully with database integration!', 'success');
       setNewCampaign({
         beneficiary: '',
         title: '',

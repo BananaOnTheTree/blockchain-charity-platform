@@ -2,6 +2,41 @@ const API_BASE_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3001
 
 // Campaign Metadata API
 export const campaignAPI = {
+  // Initialize campaign record (before blockchain) - returns DB ID
+  async initCampaign(metadata) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/campaigns/init`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(metadata)
+      });
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error initializing campaign:', error);
+      throw error;
+    }
+  },
+
+  // Link database record to blockchain campaign ID
+  async linkCampaign(dbId, campaignId) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/campaigns/${dbId}/link`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ campaignId })
+      });
+      return await response.json();
+    } catch (error) {
+      console.error('Error linking campaign:', error);
+      throw error;
+    }
+  },
+
   // Get campaign metadata
   async getMetadata(campaignId) {
     try {
@@ -114,6 +149,24 @@ export const campaignAPI = {
     } catch (error) {
       console.error('Error updating campaign:', error);
       return { success: false, error: error.message };
+    }
+  },
+
+  // Upload gallery images
+  async uploadGalleryImages(campaignId, formData) {
+    try {
+      const url = `${API_BASE_URL}/api/campaigns/${campaignId}/gallery`;
+      console.log('🖼️ Uploading gallery images to:', url);
+      const response = await fetch(url, {
+        method: 'POST',
+        body: formData
+      });
+      const result = await response.json();
+      console.log('🖼️ Gallery upload response:', result);
+      return result;
+    } catch (error) {
+      console.error('Error uploading gallery images:', error);
+      throw error;
     }
   }
 };

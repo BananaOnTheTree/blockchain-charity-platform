@@ -19,6 +19,7 @@ contract CharityCampaignFactory is Ownable, ReentrancyGuard {
         bool finalized;
         bool refundEnabled;
         address creator;
+        uint256 dbId; // Database ID for off-chain metadata
     }
 
     Campaign[] public campaigns;
@@ -32,7 +33,8 @@ contract CharityCampaignFactory is Ownable, ReentrancyGuard {
         address indexed beneficiary,
         string title,
         uint256 goalAmount,
-        uint256 deadline
+        uint256 deadline,
+        uint256 dbId
     );
 
     event DonationReceived(
@@ -80,18 +82,21 @@ contract CharityCampaignFactory is Ownable, ReentrancyGuard {
      * @param _description Campaign description
      * @param _goalAmount Fundraising goal in wei
      * @param _durationDays Campaign duration in days
+     * @param _dbId Database ID for off-chain metadata storage
      */
     function createCampaign(
         address payable _beneficiary,
         string memory _title,
         string memory _description,
         uint256 _goalAmount,
-        uint256 _durationDays
+        uint256 _durationDays,
+        uint256 _dbId
     ) external returns (uint256) {
         require(_beneficiary != address(0), "Invalid beneficiary address");
         require(_goalAmount > 0, "Goal amount must be greater than 0");
         require(_durationDays > 0 && _durationDays <= 365, "Invalid duration");
         require(bytes(_title).length > 0, "Title cannot be empty");
+        require(_dbId > 0, "Invalid database ID");
 
         uint256 deadline = block.timestamp + (_durationDays * 1 days);
 
@@ -104,7 +109,8 @@ contract CharityCampaignFactory is Ownable, ReentrancyGuard {
             totalRaised: 0,
             finalized: false,
             refundEnabled: false,
-            creator: msg.sender
+            creator: msg.sender,
+            dbId: _dbId
         });
 
         campaigns.push(newCampaign);
@@ -117,7 +123,8 @@ contract CharityCampaignFactory is Ownable, ReentrancyGuard {
             _beneficiary,
             _title,
             _goalAmount,
-            deadline
+            deadline,
+            _dbId
         );
 
         return campaignId;
@@ -256,7 +263,8 @@ contract CharityCampaignFactory is Ownable, ReentrancyGuard {
             uint256 totalRaised,
             bool finalized,
             bool refundEnabled,
-            address creator
+            address creator,
+            uint256 dbId
         )
     {
         Campaign memory campaign = campaigns[_campaignId];
@@ -269,7 +277,8 @@ contract CharityCampaignFactory is Ownable, ReentrancyGuard {
             campaign.totalRaised,
             campaign.finalized,
             campaign.refundEnabled,
-            campaign.creator
+            campaign.creator,
+            campaign.dbId
         );
     }
 

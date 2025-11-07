@@ -31,6 +31,61 @@ const upload = multer({
   }
 });
 
+// Create initial campaign record (before blockchain) - returns DB ID
+router.post('/init', async (req, res) => {
+  try {
+    const { category, location, detailedDescription, websiteUrl, socialMedia } = req.body;
+
+    const metadata = await CampaignMetadata.create({
+      category: category || null,
+      location: location || null,
+      detailedDescription: detailedDescription || null,
+      websiteUrl: websiteUrl || null,
+      socialMedia: socialMedia ? JSON.parse(socialMedia) : {},
+      campaignId: null // Will be updated after blockchain creation
+    });
+
+    res.json({
+      success: true,
+      message: 'Campaign record created',
+      dbId: metadata.id,
+      data: metadata
+    });
+  } catch (error) {
+    console.error('Error creating initial campaign record:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Update campaign with blockchain ID after creation
+router.patch('/:dbId/link', async (req, res) => {
+  try {
+    const { dbId } = req.params;
+    const { campaignId } = req.body;
+
+    const metadata = await CampaignMetadata.findByPk(dbId);
+    
+    if (!metadata) {
+      return res.status(404).json({
+        success: false,
+        error: 'Campaign record not found'
+      });
+    }
+
+    metadata.campaignId = parseInt(campaignId);
+    await metadata.save();
+
+    res.json({
+      success: true,
+      message: 'Campaign linked to blockchain',
+      data: metadata
+    });
+  } catch (error) {
+    console.error('Error linking campaign:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // Create or update campaign metadata
 router.post('/:campaignId', upload.single('image'), async (req, res) => {
   try {
@@ -105,12 +160,15 @@ router.get('/', async (req, res) => {
 router.post('/:campaignId/gallery', upload.array('images', 10), async (req, res) => {
   try {
     const { campaignId } = req.params;
+    console.log(`📸 Gallery upload request for campaign ${campaignId}`);
+    console.log(`📸 Files received:`, req.files?.length || 0);
 
     const metadata = await CampaignMetadata.findOne({
       where: { campaignId: parseInt(campaignId) }
     });
 
     if (!metadata) {
+      console.error(`❌ Campaign ${campaignId} not found in database`);
       return res.status(404).json({
         success: false,
         error: 'Campaign not found'
@@ -118,16 +176,27 @@ router.post('/:campaignId/gallery', upload.array('images', 10), async (req, res)
     }
 
     const galleryImages = metadata.galleryImages || [];
+    console.log(`📸 Current gallery images:`, galleryImages.length);
     
     // Add new images to gallery
     if (req.files && req.files.length > 0) {
       req.files.forEach(file => {
-        galleryImages.push(`/uploads/campaigns/${file.filename}`);
+        const imagePath = `/uploads/campaigns/${file.filename}`;
+        console.log(`📸 Adding image: ${imagePath}`);
+        galleryImages.push(imagePath);
       });
     }
 
-    metadata.galleryImages = galleryImages;
+    // IMPORTANT: Sequelize doesn't detect changes to JSON arrays when mutated directly
+    // We need to explicitly mark the field as changed or reassign it
+    metadata.galleryImages = [...galleryImages]; // Create new array to trigger Sequelize change detection
+    metadata.changed('galleryImages', true); // Explicitly mark as changed
     await metadata.save();
+    console.log(`✅ Gallery updated. Total images: ${galleryImages.length}`);
+
+    // Reload from database to ensure we return fresh data
+    await metadata.reload();
+    console.log(`📸 Reloaded gallery images:`, metadata.galleryImages);
 
     res.json({ 
       success: true, 
@@ -135,7 +204,7 @@ router.post('/:campaignId/gallery', upload.array('images', 10), async (req, res)
       data: metadata 
     });
   } catch (error) {
-    console.error('Error uploading gallery images:', error);
+    console.error('❌ Error uploading gallery images:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });

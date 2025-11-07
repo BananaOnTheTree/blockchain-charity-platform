@@ -24,12 +24,13 @@ describe("CharityCampaignFactory", function () {
         "Test Campaign",
         "This is a test campaign",
         ethers.parseEther("10"),
-        30
+        30,
+        1 // dbId
       );
 
       await expect(tx)
         .to.emit(factory, "CampaignCreated")
-        .withArgs(0, owner.address, beneficiary.address, "Test Campaign", ethers.parseEther("10"), await time.latest() + 30 * 24 * 60 * 60);
+        .withArgs(0, owner.address, beneficiary.address, "Test Campaign", ethers.parseEther("10"), await time.latest() + 30 * 24 * 60 * 60, 1);
 
       const count = await factory.getCampaignCount();
       expect(count).to.equal(1);
@@ -37,62 +38,26 @@ describe("CharityCampaignFactory", function () {
 
     it("Should reject campaign with invalid parameters", async function () {
       await expect(
-        factory.createCampaign(
-          ethers.ZeroAddress,
-          "Test",
-          "Description",
-          ethers.parseEther("10"),
-          30
-        )
+        factory.createCampaign(ethers.ZeroAddress, "Test", "Description", ethers.parseEther("10"), 30, 1)
       ).to.be.revertedWith("Invalid beneficiary address");
 
       await expect(
-        factory.createCampaign(
-          beneficiary.address,
-          "Test",
-          "Description",
-          0,
-          30
-        )
+        factory.createCampaign(beneficiary.address, "Test", "Description", 0, 30, 1)
       ).to.be.revertedWith("Goal amount must be greater than 0");
 
       await expect(
-        factory.createCampaign(
-          beneficiary.address,
-          "",
-          "Description",
-          ethers.parseEther("10"),
-          30
-        )
+        factory.createCampaign(beneficiary.address, "", "Description", ethers.parseEther("10"), 30, 1)
       ).to.be.revertedWith("Title cannot be empty");
 
       await expect(
-        factory.createCampaign(
-          beneficiary.address,
-          "Test",
-          "Description",
-          ethers.parseEther("10"),
-          0
-        )
+        factory.createCampaign(beneficiary.address, "Test", "Description", ethers.parseEther("10"), 0, 1)
       ).to.be.revertedWith("Invalid duration");
     });
 
     it("Should track user campaigns", async function () {
-      await factory.createCampaign(
-        beneficiary.address,
-        "Campaign 1",
-        "Description",
-        ethers.parseEther("10"),
-        30
-      );
+      await factory.createCampaign(beneficiary.address, "Campaign 1", "Description", ethers.parseEther("10"), 30, 1);
 
-      await factory.createCampaign(
-        beneficiary.address,
-        "Campaign 2",
-        "Description",
-        ethers.parseEther("5"),
-        30
-      );
+      await factory.createCampaign(beneficiary.address, "Campaign 2", "Description", ethers.parseEther("5"), 30, 1);
 
       const userCampaigns = await factory.getUserCampaigns(owner.address);
       expect(userCampaigns.length).to.equal(2);
@@ -104,13 +69,7 @@ describe("CharityCampaignFactory", function () {
   describe("Campaign Editing", function () {
     beforeEach(async function () {
       // Create a test campaign
-      await factory.createCampaign(
-        beneficiary.address,
-        "Original Title",
-        "Original Description",
-        ethers.parseEther("10"),
-        30
-      );
+      await factory.createCampaign(beneficiary.address, "Original Title", "Original Description", ethers.parseEther("10"), 30, 1);
     });
 
     it("Should allow creator to edit campaign title and description", async function () {
@@ -186,13 +145,7 @@ describe("CharityCampaignFactory", function () {
 
   describe("Donations", function () {
     beforeEach(async function () {
-      await factory.createCampaign(
-        beneficiary.address,
-        "Test Campaign",
-        "Description",
-        ethers.parseEther("10"),
-        30
-      );
+      await factory.createCampaign(beneficiary.address, "Test Campaign", "Description", ethers.parseEther("10"), 30, 1);
     });
 
     it("Should accept donations", async function () {
@@ -249,13 +202,7 @@ describe("CharityCampaignFactory", function () {
 
   describe("Campaign Finalization", function () {
     beforeEach(async function () {
-      await factory.createCampaign(
-        beneficiary.address,
-        "Test Campaign",
-        "Description",
-        ethers.parseEther("10"),
-        30
-      );
+      await factory.createCampaign(beneficiary.address, "Test Campaign", "Description", ethers.parseEther("10"), 30, 1);
     });
 
     it("Should finalize successful campaign and transfer funds", async function () {
@@ -300,13 +247,7 @@ describe("CharityCampaignFactory", function () {
 
     it("Should allow finalization when goal is fully met before deadline", async function () {
       // Create a campaign with 1 ETH goal
-      await factory.createCampaign(
-        beneficiary.address,
-        "Fully Funded Campaign",
-        "Should finalize immediately when goal met",
-        ethers.parseEther("1"),
-        30
-      );
+      await factory.createCampaign(beneficiary.address, "Fully Funded Campaign", "Should finalize immediately when goal met", ethers.parseEther("1"), 30, 1);
 
       const campaignId = 1; // Second campaign
 
@@ -354,13 +295,7 @@ describe("CharityCampaignFactory", function () {
 
   describe("Refunds", function () {
     beforeEach(async function () {
-      await factory.createCampaign(
-        beneficiary.address,
-        "Test Campaign",
-        "Description",
-        ethers.parseEther("10"),
-        30
-      );
+      await factory.createCampaign(beneficiary.address, "Test Campaign", "Description", ethers.parseEther("10"), 30, 1);
     });
 
     it("Should process refunds for failed campaign", async function () {
@@ -422,13 +357,7 @@ describe("CharityCampaignFactory", function () {
 
   describe("View Functions", function () {
     beforeEach(async function () {
-      await factory.createCampaign(
-        beneficiary.address,
-        "Test Campaign",
-        "Test Description",
-        ethers.parseEther("10"),
-        30
-      );
+      await factory.createCampaign(beneficiary.address, "Test Campaign", "Test Description", ethers.parseEther("10"), 30, 1);
     });
 
     it("Should return correct campaign details", async function () {
@@ -445,13 +374,7 @@ describe("CharityCampaignFactory", function () {
     });
 
     it("Should return correct campaign count", async function () {
-      await factory.createCampaign(
-        beneficiary.address,
-        "Campaign 2",
-        "Description 2",
-        ethers.parseEther("5"),
-        30
-      );
+      await factory.createCampaign(beneficiary.address, "Campaign 2", "Description 2", ethers.parseEther("5"), 30, 1);
 
       const count = await factory.getCampaignCount();
       expect(count).to.equal(2);

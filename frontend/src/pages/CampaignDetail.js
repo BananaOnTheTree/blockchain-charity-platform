@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { ethers } from 'ethers';
 import './CampaignDetail.css';
 
@@ -8,12 +9,13 @@ const CampaignDetail = ({
   account, 
   onBack, 
   onDonate, 
-  onFinalize, 
+  onFinalize,
   onClaimRefund,
   onEdit,
   showModal,
   showInputModal 
 }) => {
+  const navigate = useNavigate();
   const [campaign, setCampaign] = useState(null);
   const [metadata, setMetadata] = useState(null);
   const [donation, setDonation] = useState(null);
@@ -22,11 +24,11 @@ const CampaignDetail = ({
   const [activeTab, setActiveTab] = useState('overview');
   const [selectedImage, setSelectedImage] = useState(0);
   const [leaderboard, setLeaderboard] = useState([]);
-  const [isEditing, setIsEditing] = useState(false);
-  const [editedTitle, setEditedTitle] = useState('');
-  const [editedDescription, setEditedDescription] = useState('');
-
-  const loadCampaignData = useCallback(async () => {
+  
+  // Lightbox state for gallery
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
+  const [slideDirection, setSlideDirection] = useState('right');  const loadCampaignData = useCallback(async () => {
     if (!contract || !account) {
       // Don't set loading to false yet, wait for contract to be ready
       return;
@@ -48,7 +50,8 @@ const CampaignDetail = ({
         totalRaised: campaignData[5],
         finalized: campaignData[6],
         refundEnabled: campaignData[7],
-        creator: campaignData[8]
+        creator: campaignData[8],
+        dbId: Number(campaignData[9])
       };
       setCampaign(parsedCampaign);
 
@@ -111,31 +114,47 @@ const CampaignDetail = ({
   };
 
   const handleEditClick = () => {
-    setEditedTitle(campaign.title);
-    setEditedDescription(campaign.description);
-    setIsEditing(true);
+    navigate(`/campaign/${campaignId}/edit`);
   };
 
-  const handleCancelEdit = () => {
-    setIsEditing(false);
-    setEditedTitle('');
-    setEditedDescription('');
+  const openLightbox = (index) => {
+    setLightboxIndex(index);
+    setLightboxOpen(true);
   };
 
-  const handleSaveEdit = async () => {
-    if (!editedTitle.trim()) {
-      showModal('Error', 'Title cannot be empty', 'error');
-      return;
-    }
+  const closeLightbox = () => {
+    setLightboxOpen(false);
+  };
 
-    try {
-      await onEdit(campaignId, editedTitle, editedDescription);
-      setIsEditing(false);
-      await loadCampaignData(); // Reload after edit
-    } catch (error) {
-      console.error('Error editing campaign:', error);
+  const nextImage = () => {
+    if (metadata?.galleryImages) {
+      setSlideDirection('right');
+      setLightboxIndex((prev) => (prev + 1) % metadata.galleryImages.length);
     }
   };
+
+  const prevImage = () => {
+    if (metadata?.galleryImages) {
+      setSlideDirection('left');
+      setLightboxIndex((prev) => 
+        prev === 0 ? metadata.galleryImages.length - 1 : prev - 1
+      );
+    }
+  };
+
+  // Keyboard navigation for lightbox
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (!lightboxOpen) return;
+      
+      if (e.key === 'Escape') closeLightbox();
+      if (e.key === 'ArrowRight') nextImage();
+      if (e.key === 'ArrowLeft') prevImage();
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [lightboxOpen, metadata?.galleryImages]);
 
   if (loading) {
     return (
@@ -351,6 +370,31 @@ const CampaignDetail = ({
       <div className="tab-content">
         {activeTab === 'overview' && (
           <div className="overview-tab">
+            {/* Photo Gallery */}
+            {metadata?.galleryImages && metadata.galleryImages.length > 0 && (
+              <div className="photo-gallery">
+                <h2>📸 Photo Gallery</h2>
+                <div className="gallery-grid">
+                  {metadata.galleryImages.map((image, idx) => (
+                    <div 
+                      key={idx} 
+                      className="gallery-item"
+                      onClick={() => openLightbox(idx)}
+                    >
+                      <img 
+                        src={`http://localhost:3001${image}`} 
+                        alt={`Campaign gallery ${idx + 1}`}
+                        onError={(e) => e.target.src = 'https://via.placeholder.com/300?text=Image'}
+                      />
+                      <div className="gallery-overlay">
+                        <span className="zoom-icon">🔍</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <h2>About This Campaign</h2>
             <p className="description">{campaign.description}</p>
             
@@ -481,50 +525,37 @@ const CampaignDetail = ({
         )}
       </div>
 
-      {/* Edit Campaign Modal */}
-      {isEditing && (
-        <div className="modal-overlay" onClick={handleCancelEdit}>
-          <div className="modal-content edit-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h2>✏️ Edit Campaign</h2>
-              <button className="close-button" onClick={handleCancelEdit}>×</button>
-            </div>
-            <div className="modal-body">
-              <div className="form-group">
-                <label htmlFor="edit-title">Campaign Title *</label>
-                <input
-                  id="edit-title"
-                  type="text"
-                  value={editedTitle}
-                  onChange={(e) => setEditedTitle(e.target.value)}
-                  placeholder="Enter campaign title"
-                  maxLength="100"
-                />
-              </div>
-              <div className="form-group">
-                <label htmlFor="edit-description">Description</label>
-                <textarea
-                  id="edit-description"
-                  value={editedDescription}
-                  onChange={(e) => setEditedDescription(e.target.value)}
-                  placeholder="Enter campaign description"
-                  rows="6"
-                  maxLength="1000"
-                />
-              </div>
-              <div className="form-note">
-                Note: You can only edit the title and description. Goal, deadline, and beneficiary cannot be changed.
-              </div>
-            </div>
-            <div className="modal-footer">
-              <button className="btn-cancel" onClick={handleCancelEdit}>
-                Cancel
-              </button>
-              <button className="btn-save" onClick={handleSaveEdit}>
-                Save Changes
-              </button>
+      {/* Lightbox Modal for Gallery */}
+      {lightboxOpen && metadata?.galleryImages && (
+        <div className="lightbox-overlay" onClick={closeLightbox}>
+          <button className="lightbox-close" onClick={closeLightbox}>×</button>
+          
+          <button 
+            className="lightbox-arrow lightbox-prev" 
+            onClick={(e) => { e.stopPropagation(); prevImage(); }}
+          >
+            ‹
+          </button>
+          
+          <div className="lightbox-content" onClick={(e) => e.stopPropagation()}>
+            <img 
+              key={lightboxIndex}
+              className={`lightbox-image slide-${slideDirection}`}
+              src={`http://localhost:3001${metadata.galleryImages[lightboxIndex]}`} 
+              alt={`Gallery ${lightboxIndex + 1}`}
+              onError={(e) => e.target.src = 'https://via.placeholder.com/800?text=Image'}
+            />
+            <div className="lightbox-caption">
+              {lightboxIndex + 1} / {metadata.galleryImages.length}
             </div>
           </div>
+          
+          <button 
+            className="lightbox-arrow lightbox-next" 
+            onClick={(e) => { e.stopPropagation(); nextImage(); }}
+          >
+            ›
+          </button>
         </div>
       )}
     </div>

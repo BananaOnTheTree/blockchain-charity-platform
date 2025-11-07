@@ -9,8 +9,8 @@ const CampaignMetadata = sequelize.define('CampaignMetadata', {
   },
   campaignId: {
     type: DataTypes.INTEGER,
-    allowNull: false,
-    comment: 'Reference to blockchain campaign ID (source of truth)'
+    allowNull: true,
+    comment: 'Reference to blockchain campaign ID (will be set after blockchain creation)'
   },
   
   // === MEDIA (Not on blockchain - too expensive) ===

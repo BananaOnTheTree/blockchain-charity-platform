@@ -45,6 +45,7 @@ export const useCampaignOperations = (contract, account, showModal) => {
           finalized: campaign[6],
           refundEnabled: campaign[7],
           creator: campaign[8],
+          dbId: Number(campaign[9]), // Database ID from blockchain
           userContribution: ethers.formatEther(userContribution),
           category: metadata?.category,
           location: metadata?.location,
