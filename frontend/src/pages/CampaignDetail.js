@@ -222,37 +222,52 @@ const CampaignDetail = ({
 
   return (
     <div className="campaign-detail">
-      {/* Hero Section with Banner Image */}
-      <div className="hero-section">
-        <div className="image-gallery">
-          {allImages.length > 0 ? (
-            <div className="main-image">
+      {/* Hero Banner with Image and Title Overlay */}
+      <div className="hero-banner">
+        {allImages.length > 0 ? (
+          <>
+            <div className="banner-image">
               <img 
                 src={`http://localhost:3001${allImages[0]}`} 
                 alt={campaign.title}
-                onError={(e) => e.target.src = 'https://via.placeholder.com/800x400?text=Campaign+Image'}
+                onError={(e) => e.target.src = 'https://via.placeholder.com/1400x500?text=Campaign+Image'}
               />
+              <div className="banner-overlay"></div>
             </div>
-          ) : (
-            <div className="placeholder-image">
-              <span>📸</span>
-              <p>No images available</p>
+            <div className="banner-content">
+              <div className="banner-header">
+                {metadata?.category && (
+                  <span className="category-badge-hero">{metadata.category}</span>
+                )}
+                <h1 className="campaign-title-hero">{campaign.title}</h1>
+                {metadata?.location && (
+                  <p className="location-hero">📍 {metadata.location}</p>
+                )}
+              </div>
             </div>
-          )}
-        </div>
-
-        <div className="campaign-header">
-          <div className="header-top">
-            <h1>{campaign.title}</h1>
-            {metadata?.category && (
-              <span className="category-badge">{metadata.category}</span>
-            )}
-          </div>
-          {metadata?.location && (
-            <p className="location">📍 {metadata.location}</p>
-          )}
-        </div>
+          </>
+        ) : (
+          <>
+            <div className="banner-placeholder">
+              <span className="placeholder-icon">📸</span>
+            </div>
+            <div className="banner-content">
+              <div className="banner-header">
+                {metadata?.category && (
+                  <span className="category-badge-hero">{metadata.category}</span>
+                )}
+                <h1 className="campaign-title-hero">{campaign.title}</h1>
+                {metadata?.location && (
+                  <p className="location-hero">📍 {metadata.location}</p>
+                )}
+              </div>
+            </div>
+          </>
+        )}
       </div>
+
+      {/* Main Content Card */}
+      <div className="content-card">
 
       {/* Stats Bar */}
       <div className="stats-bar">
@@ -502,6 +517,7 @@ const CampaignDetail = ({
             )}
           </div>
         </aside>
+      </div>
       </div>
 
       {/* Lightbox Modal for Gallery */}

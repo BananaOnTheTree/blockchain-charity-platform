@@ -25,7 +25,142 @@
   background: linear-gradient(135deg, #f5576c 0%, #f093fb 100%);
 }
 
-/* Hero Section */
+/* Hero Banner */
+.hero-banner {
+  position: relative;
+  width: 100%;
+  margin-bottom: 30px;
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+}
+
+.banner-image {
+  position: relative;
+  width: 100%;
+  height: 500px;
+  overflow: hidden;
+}
+
+.banner-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.banner-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 0.2) 0%,
+    rgba(0, 0, 0, 0.4) 60%,
+    rgba(0, 0, 0, 0.7) 100%
+  );
+}
+
+.banner-placeholder {
+  position: relative;
+  width: 100%;
+  height: 500px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.placeholder-icon {
+  font-size: 100px;
+  opacity: 0.5;
+}
+
+.banner-content {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 40px;
+  z-index: 2;
+}
+
+.banner-header {
+  max-width: 900px;
+}
+
+.category-badge-hero {
+  display: inline-block;
+  padding: 8px 20px;
+  background: rgba(255, 255, 255, 0.95);
+  color: #11998e;
+  font-size: 14px;
+  font-weight: 700;
+  border-radius: 20px;
+  margin-bottom: 15px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.campaign-title-hero {
+  font-size: 3rem;
+  color: white;
+  font-weight: 800;
+  margin: 0 0 15px 0;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  line-height: 1.2;
+}
+
+.location-hero {
+  font-size: 1.1rem;
+  color: rgba(255, 255, 255, 0.95);
+  margin: 0;
+  font-weight: 500;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+}
+
+.thumbnail-strip {
+  display: flex;
+  gap: 12px;
+  padding: 20px;
+  background: rgba(255, 255, 255, 0.98);
+  overflow-x: auto;
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.thumbnail-item {
+  flex-shrink: 0;
+}
+
+.thumbnail-item img {
+  width: 120px;
+  height: 120px;
+  object-fit: cover;
+  border-radius: 12px;
+  cursor: pointer;
+  border: 3px solid transparent;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.thumbnail-item img:hover {
+  transform: translateY(-4px) scale(1.05);
+  box-shadow: 0 8px 20px rgba(17, 153, 142, 0.3);
+  border-color: #11998e;
+}
+
+/* Main Content Card */
+.content-card {
+  background: white;
+  border-radius: 20px;
+  padding: 30px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+  margin-bottom: 20px;
+}
+
+/* Legacy Hero Section (kept for backwards compatibility) */
 .hero-section {
   background: white;
   border-radius: 16px;
