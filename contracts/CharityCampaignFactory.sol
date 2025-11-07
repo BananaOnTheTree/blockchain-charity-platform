@@ -6,9 +6,15 @@ import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 /**
  * @title CharityCampaignFactory
- * @dev Factory contract to create and manage charity campaigns
+ * @dev Factory contract to create and manage charity campaigns with real-world best practices
  */
 contract CharityCampaignFactory is Ownable, ReentrancyGuard {
+    // Constants for best practices
+    uint256 public constant MIN_CAMPAIGN_DURATION = 1 days;
+    uint256 public constant MAX_CAMPAIGN_DURATION = 365 days;
+    uint256 public constant DONATION_GRACE_PERIOD = 24 hours;
+    uint256 public constant MIN_GOAL_AMOUNT = 0.01 ether;
+    
     struct Campaign {
         address payable beneficiary;
         string title;
@@ -20,10 +26,20 @@ contract CharityCampaignFactory is Ownable, ReentrancyGuard {
         bool refundEnabled;
         address creator;
         uint256 dbId; // Database ID for off-chain metadata
+        bool paused; // Emergency pause by owner
+        bool cancelled; // Cancelled by creator
+        uint256 createdAt; // Campaign creation timestamp
+    }
+    
+    struct Donation {
+        uint256 amount;
+        uint256 timestamp;
+        bool refunded;
     }
 
     Campaign[] public campaigns;
     mapping(uint256 => mapping(address => uint256)) public contributions;
+    mapping(uint256 => mapping(address => Donation)) public donations; // Track individual donations with timestamp
     mapping(address => uint256[]) public userCampaigns;
     mapping(uint256 => address[]) public campaignDonors;
 
@@ -60,6 +76,28 @@ contract CharityCampaignFactory is Ownable, ReentrancyGuard {
         string newTitle,
         string newDescription
     );
+    
+    event CampaignPaused(
+        uint256 indexed campaignId,
+        address indexed admin
+    );
+    
+    event CampaignUnpaused(
+        uint256 indexed campaignId,
+        address indexed admin
+    );
+    
+    event CampaignCancelled(
+        uint256 indexed campaignId,
+        address indexed creator,
+        uint256 totalRefunded
+    );
+    
+    event DonationCancelled(
+        uint256 indexed campaignId,
+        address indexed donor,
+        uint256 amount
+    );
 
     modifier campaignExists(uint256 _campaignId) {
         require(_campaignId < campaigns.length, "Campaign does not exist");
@@ -69,7 +107,18 @@ contract CharityCampaignFactory is Ownable, ReentrancyGuard {
     modifier campaignActive(uint256 _campaignId) {
         Campaign memory campaign = campaigns[_campaignId];
         require(!campaign.finalized, "Campaign already finalized");
+        require(!campaign.paused, "Campaign is paused");
+        require(!campaign.cancelled, "Campaign has been cancelled");
         require(block.timestamp < campaign.deadline, "Campaign deadline passed");
+        _;
+    }
+    
+    modifier onlyCreatorOrOwner(uint256 _campaignId) {
+        Campaign memory campaign = campaigns[_campaignId];
+        require(
+            msg.sender == campaign.creator || msg.sender == owner(),
+            "Only creator or owner can perform this action"
+        );
         _;
     }
 
@@ -93,12 +142,17 @@ contract CharityCampaignFactory is Ownable, ReentrancyGuard {
         uint256 _dbId
     ) external returns (uint256) {
         require(_beneficiary != address(0), "Invalid beneficiary address");
-        require(_goalAmount > 0, "Goal amount must be greater than 0");
-        require(_durationDays > 0 && _durationDays <= 365, "Invalid duration");
+        require(_goalAmount >= MIN_GOAL_AMOUNT, "Goal amount too low");
+        require(_durationDays > 0, "Duration must be positive");
         require(bytes(_title).length > 0, "Title cannot be empty");
+        require(bytes(_title).length <= 200, "Title too long");
         require(_dbId > 0, "Invalid database ID");
 
-        uint256 deadline = block.timestamp + (_durationDays * 1 days);
+        uint256 durationInSeconds = _durationDays * 1 days;
+        require(durationInSeconds >= MIN_CAMPAIGN_DURATION, "Campaign duration too short");
+        require(durationInSeconds <= MAX_CAMPAIGN_DURATION, "Campaign duration too long");
+
+        uint256 deadline = block.timestamp + durationInSeconds;
 
         Campaign memory newCampaign = Campaign({
             beneficiary: _beneficiary,
@@ -110,7 +164,10 @@ contract CharityCampaignFactory is Ownable, ReentrancyGuard {
             finalized: false,
             refundEnabled: false,
             creator: msg.sender,
-            dbId: _dbId
+            dbId: _dbId,
+            paused: false,
+            cancelled: false,
+            createdAt: block.timestamp
         });
 
         campaigns.push(newCampaign);
@@ -150,10 +207,48 @@ contract CharityCampaignFactory is Ownable, ReentrancyGuard {
             campaignDonors[_campaignId].push(msg.sender);
         }
         
+        // Track donation with timestamp for grace period
+        donations[_campaignId][msg.sender] = Donation({
+            amount: donations[_campaignId][msg.sender].amount + msg.value,
+            timestamp: block.timestamp,
+            refunded: false
+        });
+        
         contributions[_campaignId][msg.sender] += msg.value;
         campaign.totalRaised += msg.value;
 
         emit DonationReceived(_campaignId, msg.sender, msg.value);
+    }
+    
+    /**
+     * @dev Cancel donation within grace period (24 hours)
+     * @param _campaignId ID of the campaign
+     */
+    function cancelDonation(uint256 _campaignId)
+        external
+        campaignExists(_campaignId)
+        nonReentrant
+    {
+        Campaign storage campaign = campaigns[_campaignId];
+        Donation storage donation = donations[_campaignId][msg.sender];
+        
+        require(!campaign.finalized, "Campaign already finalized");
+        require(donation.amount > 0, "No donation found");
+        require(!donation.refunded, "Donation already refunded");
+        require(
+            block.timestamp <= donation.timestamp + DONATION_GRACE_PERIOD,
+            "Grace period expired"
+        );
+        
+        uint256 refundAmount = donation.amount;
+        donation.refunded = true;
+        contributions[_campaignId][msg.sender] = 0;
+        campaign.totalRaised -= refundAmount;
+        
+        (bool success, ) = payable(msg.sender).call{value: refundAmount}("");
+        require(success, "Refund transfer failed");
+        
+        emit DonationCancelled(_campaignId, msg.sender, refundAmount);
     }
 
     /**
@@ -245,6 +340,64 @@ contract CharityCampaignFactory is Ownable, ReentrancyGuard {
 
         emit RefundIssued(_campaignId, msg.sender, contributedAmount);
     }
+    
+    /**
+     * @dev Cancel campaign and enable refunds for all donors (creator only, before finalization)
+     * @param _campaignId ID of the campaign to cancel
+     */
+    function cancelCampaign(uint256 _campaignId)
+        external
+        campaignExists(_campaignId)
+        onlyCreatorOrOwner(_campaignId)
+        nonReentrant
+    {
+        Campaign storage campaign = campaigns[_campaignId];
+        
+        require(!campaign.finalized, "Cannot cancel finalized campaign");
+        require(!campaign.cancelled, "Campaign already cancelled");
+        
+        campaign.cancelled = true;
+        campaign.refundEnabled = true;
+        
+        uint256 totalToRefund = campaign.totalRaised;
+        
+        emit CampaignCancelled(_campaignId, msg.sender, totalToRefund);
+    }
+    
+    /**
+     * @dev Emergency pause campaign (owner only)
+     * @param _campaignId ID of the campaign to pause
+     */
+    function pauseCampaign(uint256 _campaignId)
+        external
+        onlyOwner
+        campaignExists(_campaignId)
+    {
+        Campaign storage campaign = campaigns[_campaignId];
+        require(!campaign.paused, "Campaign already paused");
+        require(!campaign.finalized, "Cannot pause finalized campaign");
+        
+        campaign.paused = true;
+        
+        emit CampaignPaused(_campaignId, msg.sender);
+    }
+    
+    /**
+     * @dev Unpause campaign (owner only)
+     * @param _campaignId ID of the campaign to unpause
+     */
+    function unpauseCampaign(uint256 _campaignId)
+        external
+        onlyOwner
+        campaignExists(_campaignId)
+    {
+        Campaign storage campaign = campaigns[_campaignId];
+        require(campaign.paused, "Campaign not paused");
+        
+        campaign.paused = false;
+        
+        emit CampaignUnpaused(_campaignId, msg.sender);
+    }
 
     /**
      * @dev Get campaign details
@@ -264,7 +417,10 @@ contract CharityCampaignFactory is Ownable, ReentrancyGuard {
             bool finalized,
             bool refundEnabled,
             address creator,
-            uint256 dbId
+            uint256 dbId,
+            bool paused,
+            bool cancelled,
+            uint256 createdAt
         )
     {
         Campaign memory campaign = campaigns[_campaignId];
@@ -278,7 +434,10 @@ contract CharityCampaignFactory is Ownable, ReentrancyGuard {
             campaign.finalized,
             campaign.refundEnabled,
             campaign.creator,
-            campaign.dbId
+            campaign.dbId,
+            campaign.paused,
+            campaign.cancelled,
+            campaign.createdAt
         );
     }
 

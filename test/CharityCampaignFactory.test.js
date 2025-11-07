@@ -43,7 +43,7 @@ describe("CharityCampaignFactory", function () {
 
       await expect(
         factory.createCampaign(beneficiary.address, "Test", "Description", 0, 30, 1)
-      ).to.be.revertedWith("Goal amount must be greater than 0");
+      ).to.be.revertedWith("Goal amount too low");
 
       await expect(
         factory.createCampaign(beneficiary.address, "", "Description", ethers.parseEther("10"), 30, 1)
@@ -51,7 +51,7 @@ describe("CharityCampaignFactory", function () {
 
       await expect(
         factory.createCampaign(beneficiary.address, "Test", "Description", ethers.parseEther("10"), 0, 1)
-      ).to.be.revertedWith("Invalid duration");
+      ).to.be.revertedWith("Duration must be positive");
     });
 
     it("Should track user campaigns", async function () {
