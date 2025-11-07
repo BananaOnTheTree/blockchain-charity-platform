@@ -19,8 +19,13 @@ const Layout = ({ account, loading, networkError, children }) => {
 
       <nav className="navigation">
         <Link to="/">
-          <button className={isActive('/') && !location.pathname.includes('campaign') ? 'nav-btn active' : 'nav-btn'}>
-            🏠 Browse Campaigns
+          <button className={isActive('/') && location.pathname === '/' ? 'nav-btn active' : 'nav-btn'}>
+            🏠 Home
+          </button>
+        </Link>
+        <Link to="/browse">
+          <button className={isActive('/browse') ? 'nav-btn active' : 'nav-btn'}>
+            🔍 Browse Campaigns
           </button>
         </Link>
         <Link to="/create">

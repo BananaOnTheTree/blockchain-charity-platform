@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { BrowserRouter as Router, Routes, Route, useNavigate, useParams } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, useNavigate, useParams, useLocation } from 'react-router-dom';
 import './App.css';
 import Modal from './components/Modal';
 import InputModal from './components/InputModal';
 import CampaignDetail from './pages/CampaignDetail';
 import EditCampaign from './pages/EditCampaign';
 import Layout from './components/Layout';
+import Home from './pages/Home';
 import BrowseCampaigns from './pages/BrowseCampaigns';
 import CreateCampaign from './pages/CreateCampaign';
 import MyCampaigns from './pages/MyCampaigns';
@@ -14,6 +15,17 @@ import { useModals } from './hooks/useModals';
 import { useCampaignOperations } from './hooks/useCampaignOperations';
 import { useCreateCampaign } from './hooks/useCreateCampaign';
 import { getProgressPercentage, isDeadlinePassed, canFinalizeCampaign } from './utils/campaignUtils';
+
+// Scroll to top component
+function ScrollToTop() {
+  const { pathname } = useLocation();
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [pathname]);
+
+  return null;
+}
 
 function App() {
   // Custom hooks
@@ -119,8 +131,19 @@ function App() {
 
   return (
     <Router>
+      <ScrollToTop />
       <Routes>
         <Route path="/" element={
+          <Layout account={account} loading={loading} networkError={networkError}>
+            <Home 
+              campaigns={campaigns}
+              account={account}
+            />
+            <Modal {...modal} onClose={closeModal} />
+          </Layout>
+        } />
+
+        <Route path="/browse" element={
           <Layout account={account} loading={loading} networkError={networkError}>
             <BrowseCampaigns
               campaigns={campaigns}
