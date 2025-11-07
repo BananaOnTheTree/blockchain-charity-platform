@@ -22,7 +22,6 @@ const CampaignDetail = ({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState('overview');
-  const [selectedImage, setSelectedImage] = useState(0);
   const [leaderboard, setLeaderboard] = useState([]);
   
   // Lightbox state for gallery
@@ -154,6 +153,7 @@ const CampaignDetail = ({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lightboxOpen, metadata?.galleryImages]);
 
   if (loading) {
@@ -222,35 +222,17 @@ const CampaignDetail = ({
 
   return (
     <div className="campaign-detail">
-      <button className="back-button" onClick={onBack}>← Back to Campaigns</button>
-
-      {/* Hero Section with Image Gallery */}
+      {/* Hero Section with Banner Image */}
       <div className="hero-section">
         <div className="image-gallery">
           {allImages.length > 0 ? (
-            <>
-              <div className="main-image">
-                <img 
-                  src={`http://localhost:3001${allImages[selectedImage]}`} 
-                  alt={campaign.title}
-                  onError={(e) => e.target.src = 'https://via.placeholder.com/800x400?text=Campaign+Image'}
-                />
-              </div>
-              {allImages.length > 1 && (
-                <div className="thumbnail-gallery">
-                  {allImages.map((img, idx) => (
-                    <img
-                      key={idx}
-                      src={`http://localhost:3001${img}`}
-                      alt={`Thumbnail ${idx + 1}`}
-                      className={selectedImage === idx ? 'active' : ''}
-                      onClick={() => setSelectedImage(idx)}
-                      onError={(e) => e.target.src = 'https://via.placeholder.com/100?text=Image'}
-                    />
-                  ))}
-                </div>
-              )}
-            </>
+            <div className="main-image">
+              <img 
+                src={`http://localhost:3001${allImages[0]}`} 
+                alt={campaign.title}
+                onError={(e) => e.target.src = 'https://via.placeholder.com/800x400?text=Campaign+Image'}
+              />
+            </div>
           ) : (
             <div className="placeholder-image">
               <span>📸</span>
@@ -353,12 +335,6 @@ const CampaignDetail = ({
           📋 Overview
         </button>
         <button 
-          className={activeTab === 'leaderboard' ? 'tab active' : 'tab'}
-          onClick={() => setActiveTab('leaderboard')}
-        >
-          🏆 Leaderboard
-        </button>
-        <button 
           className={activeTab === 'details' ? 'tab active' : 'tab'}
           onClick={() => setActiveTab('details')}
         >
@@ -366,121 +342,83 @@ const CampaignDetail = ({
         </button>
       </div>
 
-      {/* Tab Content */}
-      <div className="tab-content">
-        {activeTab === 'overview' && (
-          <div className="overview-tab">
-            {/* Photo Gallery */}
-            {metadata?.galleryImages && metadata.galleryImages.length > 0 && (
-              <div className="photo-gallery">
-                <h2>📸 Photo Gallery</h2>
-                <div className="gallery-grid">
-                  {metadata.galleryImages.map((image, idx) => (
-                    <div 
-                      key={idx} 
-                      className="gallery-item"
-                      onClick={() => openLightbox(idx)}
-                    >
-                      <img 
-                        src={`http://localhost:3001${image}`} 
-                        alt={`Campaign gallery ${idx + 1}`}
-                        onError={(e) => e.target.src = 'https://via.placeholder.com/300?text=Image'}
-                      />
-                      <div className="gallery-overlay">
-                        <span className="zoom-icon">🔍</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            <h2>About This Campaign</h2>
-            <p className="description">{campaign.description}</p>
-            
-            {metadata?.detailedDescription && (
-              <>
-                <h3>Detailed Description</h3>
-                <div className="detailed-description">
-                  {metadata.detailedDescription}
-                </div>
-              </>
-            )}
-
-            {metadata?.websiteUrl && (
-              <div className="website-link">
-                <h3>Learn More</h3>
-                <a href={metadata.websiteUrl} target="_blank" rel="noopener noreferrer">
-                  🔗 Visit Campaign Website
-                </a>
-              </div>
-            )}
-
-            {metadata?.socialMedia && Object.keys(metadata.socialMedia).length > 0 && (
-              <div className="social-media">
-                <h3>Connect With Us</h3>
-                <div className="social-links">
-                  {metadata.socialMedia.twitter && (
-                    <a href={metadata.socialMedia.twitter} target="_blank" rel="noopener noreferrer">
-                      🐦 Twitter
-                    </a>
-                  )}
-                  {metadata.socialMedia.facebook && (
-                    <a href={metadata.socialMedia.facebook} target="_blank" rel="noopener noreferrer">
-                      👥 Facebook
-                    </a>
-                  )}
-                  {metadata.socialMedia.instagram && (
-                    <a href={metadata.socialMedia.instagram} target="_blank" rel="noopener noreferrer">
-                      📷 Instagram
-                    </a>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {activeTab === 'leaderboard' && (
-          <div className="leaderboard-tab">
-            <h2>🏆 Top Donors</h2>
-            {leaderboard.length > 0 ? (
-              <div className="leaderboard-list">
-                {leaderboard.map((donor) => (
-                  <div 
-                    key={donor.rank} 
-                    className={`leaderboard-item ${donor.isCurrentUser ? 'current-user' : ''} ${donor.rank <= 3 ? `rank-${donor.rank}` : ''}`}
-                  >
-                    <div className="rank-badge">
-                      {donor.rank === 1 && <span className="medal gold">🥇</span>}
-                      {donor.rank === 2 && <span className="medal silver">🥈</span>}
-                      {donor.rank === 3 && <span className="medal bronze">🥉</span>}
-                      {donor.rank > 3 && <span className="rank-number">#{donor.rank}</span>}
-                    </div>
-                    <div className="donor-info">
-                      <span className="donor-address">
-                        {donor.address.substring(0, 10)}...{donor.address.substring(38)}
-                        {donor.isCurrentUser && <span className="you-badge">You</span>}
-                      </span>
-                    </div>
-                    <div className="donor-amount">
-                      <span className="amount">{ethers.formatEther(donor.amount)} ETH</span>
-                      <span className="percentage">
-                        {((Number(ethers.formatEther(donor.amount)) / Number(ethers.formatEther(campaign.totalRaised))) * 100).toFixed(1)}%
-                      </span>
-                    </div>
+      {/* Tab Content with Sidebar Layout */}
+      <div className="content-with-sidebar">
+        <div className="main-content">
+          {activeTab === 'overview' && (
+            <div className="overview-tab">
+              <h2>About This Campaign</h2>
+              <p className="description">{campaign.description}</p>
+              
+              {metadata?.detailedDescription && (
+                <>
+                  <h3>Detailed Description</h3>
+                  <div className="detailed-description">
+                    {metadata.detailedDescription}
                   </div>
-                ))}
-              </div>
-            ) : (
-              <div className="no-donations">
-                <p>🎁 No donations yet. Be the first to support this campaign!</p>
-              </div>
-            )}
-          </div>
-        )}
+                </>
+              )}
 
-        {activeTab === 'details' && (
+              {/* Photo Gallery */}
+              {metadata?.galleryImages && metadata.galleryImages.length > 0 && (
+                <div className="photo-gallery">
+                  <h2>📸 Photo Gallery</h2>
+                  <div className="gallery-grid">
+                    {metadata.galleryImages.map((image, idx) => (
+                      <div 
+                        key={idx} 
+                        className="gallery-item"
+                        onClick={() => openLightbox(idx)}
+                      >
+                        <img 
+                          src={`http://localhost:3001${image}`} 
+                          alt={`Campaign gallery ${idx + 1}`}
+                          onError={(e) => e.target.src = 'https://via.placeholder.com/300?text=Image'}
+                        />
+                        <div className="gallery-overlay">
+                          <span className="zoom-icon">🔍</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {metadata?.websiteUrl && (
+                <div className="website-link">
+                  <h3>Learn More</h3>
+                  <a href={metadata.websiteUrl} target="_blank" rel="noopener noreferrer">
+                    🔗 Visit Campaign Website
+                  </a>
+                </div>
+              )}
+
+              {metadata?.socialMedia && Object.keys(metadata.socialMedia).length > 0 && (
+                <div className="social-media">
+                  <h3>Connect With Us</h3>
+                  <div className="social-links">
+                    {metadata.socialMedia.twitter && (
+                      <a href={metadata.socialMedia.twitter} target="_blank" rel="noopener noreferrer">
+                        🐦 Twitter
+                      </a>
+                    )}
+                    {metadata.socialMedia.facebook && (
+                      <a href={metadata.socialMedia.facebook} target="_blank" rel="noopener noreferrer">
+                        👥 Facebook
+                      </a>
+                    )}
+                    {metadata.socialMedia.instagram && (
+                      <a href={metadata.socialMedia.instagram} target="_blank" rel="noopener noreferrer">
+                        📷 Instagram
+                      </a>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeTab === 'details' && (
           <div className="details-tab">
             <h2>Campaign Details</h2>
             <div className="details-grid">
@@ -523,6 +461,47 @@ const CampaignDetail = ({
             </div>
           </div>
         )}
+        </div>
+
+        {/* Sidebar with Leaderboard */}
+        <aside className="sidebar">
+          <div className="leaderboard-sidebar">
+            <h2>🏆 Top Donors</h2>
+            {leaderboard.length > 0 ? (
+              <div className="leaderboard-list">
+                {leaderboard.map((donor) => (
+                  <div 
+                    key={donor.rank} 
+                    className={`leaderboard-item ${donor.isCurrentUser ? 'current-user' : ''} ${donor.rank <= 3 ? `rank-${donor.rank}` : ''}`}
+                  >
+                    <div className="rank-badge">
+                      {donor.rank === 1 && <span className="medal gold">🥇</span>}
+                      {donor.rank === 2 && <span className="medal silver">🥈</span>}
+                      {donor.rank === 3 && <span className="medal bronze">🥉</span>}
+                      {donor.rank > 3 && <span className="rank-number">#{donor.rank}</span>}
+                    </div>
+                    <div className="donor-info">
+                      <span className="donor-address">
+                        {donor.address.substring(0, 10)}...{donor.address.substring(38)}
+                        {donor.isCurrentUser && <span className="you-badge">You</span>}
+                      </span>
+                    </div>
+                    <div className="donor-amount">
+                      <span className="amount">{ethers.formatEther(donor.amount)} ETH</span>
+                      <span className="percentage">
+                        {((Number(ethers.formatEther(donor.amount)) / Number(ethers.formatEther(campaign.totalRaised))) * 100).toFixed(1)}%
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="no-donations">
+                <p>🎁 No donations yet. Be the first to support this campaign!</p>
+              </div>
+            )}
+          </div>
+        </aside>
       </div>
 
       {/* Lightbox Modal for Gallery */}

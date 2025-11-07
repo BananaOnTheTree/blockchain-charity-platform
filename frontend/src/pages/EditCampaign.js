@@ -37,6 +37,7 @@ const EditCampaign = ({ campaignId, contract, account, showModal, onCancel }) =>
 
   useEffect(() => {
     loadCampaignData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [campaignId, contract]);
 
   const loadCampaignData = async () => {
