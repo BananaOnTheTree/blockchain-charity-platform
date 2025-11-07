@@ -26,6 +26,14 @@ const EditCampaign = ({ campaignId, contract, account, showModal, onCancel }) =>
   const [newGalleryImages, setNewGalleryImages] = useState([]);
   const [mainImagePreview, setMainImagePreview] = useState(null);
   const [galleryPreviews, setGalleryPreviews] = useState([]);
+  
+  // Lightbox state
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [lightboxImage, setLightboxImage] = useState(null);
+  
+  // Delete confirmation modal state
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [imageToDelete, setImageToDelete] = useState(null);
 
   useEffect(() => {
     loadCampaignData();
@@ -106,6 +114,53 @@ const EditCampaign = ({ campaignId, contract, account, showModal, onCancel }) =>
     setNewGalleryImages(files);
     const previews = files.map(file => URL.createObjectURL(file));
     setGalleryPreviews(previews);
+  };
+
+  const handleDeleteGalleryImage = async (imageIndex, e) => {
+    e.stopPropagation(); // Prevent triggering the image preview
+    
+    // Open confirmation modal
+    setImageToDelete(imageIndex);
+    setDeleteConfirmOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (imageToDelete === null) return;
+
+    try {
+      setSaving(true);
+      const response = await campaignAPI.deleteGalleryImage(campaignId, imageToDelete);
+      
+      if (response.success) {
+        // Update local metadata state with the new gallery images
+        setMetadata(response.data);
+        showModal('Success', 'Gallery image deleted successfully', 'success');
+      } else {
+        showModal('Error', response.error || 'Failed to delete image', 'error');
+      }
+    } catch (error) {
+      console.error('Error deleting gallery image:', error);
+      showModal('Error', 'Failed to delete gallery image', 'error');
+    } finally {
+      setSaving(false);
+      setDeleteConfirmOpen(false);
+      setImageToDelete(null);
+    }
+  };
+
+  const cancelDelete = () => {
+    setDeleteConfirmOpen(false);
+    setImageToDelete(null);
+  };
+
+  const handlePreviewGalleryImage = (imageUrl) => {
+    setLightboxImage(`http://localhost:3001${imageUrl}`);
+    setLightboxOpen(true);
+  };
+
+  const closeLightbox = () => {
+    setLightboxOpen(false);
+    setLightboxImage(null);
   };
 
   const handleSave = async (e) => {
@@ -360,11 +415,27 @@ const EditCampaign = ({ campaignId, contract, account, showModal, onCancel }) =>
               <p className="label">Current Gallery Images:</p>
               <div className="gallery-preview">
                 {metadata.galleryImages.map((img, idx) => (
-                  <img 
+                  <div 
                     key={idx} 
-                    src={`http://localhost:3001${img}`} 
-                    alt={`Current gallery ${idx + 1}`} 
-                  />
+                    className="gallery-image-container"
+                    onClick={() => handlePreviewGalleryImage(img)}
+                  >
+                    <img 
+                      src={`http://localhost:3001${img}`} 
+                      alt={`Current gallery ${idx + 1}`} 
+                    />
+                    <div className="gallery-overlay">
+                      <button
+                        type="button"
+                        className="delete-gallery-btn"
+                        onClick={(e) => handleDeleteGalleryImage(idx, e)}
+                        disabled={saving}
+                        title="Delete this image"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  </div>
                 ))}
               </div>
             </div>
@@ -390,6 +461,33 @@ const EditCampaign = ({ campaignId, contract, account, showModal, onCancel }) =>
           </button>
         </div>
       </form>
+
+      {/* Lightbox Modal */}
+      {lightboxOpen && (
+        <div className="lightbox-overlay" onClick={closeLightbox}>
+          <div className="lightbox-content" onClick={(e) => e.stopPropagation()}>
+            <img src={lightboxImage} alt="Preview" />
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deleteConfirmOpen && (
+        <div className="lightbox-overlay" onClick={cancelDelete}>
+          <div className="confirm-modal" onClick={(e) => e.stopPropagation()}>
+            <h3>Delete Image</h3>
+            <p>Are you sure you want to delete this gallery image?</p>
+            <div className="confirm-actions">
+              <button className="btn-cancel-confirm" onClick={cancelDelete}>
+                Cancel
+              </button>
+              <button className="btn-delete-confirm" onClick={confirmDelete} disabled={saving}>
+                {saving ? 'Deleting...' : 'Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

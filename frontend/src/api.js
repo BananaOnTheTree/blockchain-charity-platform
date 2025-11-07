@@ -168,6 +168,30 @@ export const campaignAPI = {
       console.error('Error uploading gallery images:', error);
       throw error;
     }
+  },
+
+  // Delete gallery image
+  async deleteGalleryImage(campaignId, imageIndex) {
+    try {
+      const url = `${API_BASE_URL}/api/campaigns/${campaignId}/gallery/${imageIndex}`;
+      console.log(`🗑️ Deleting gallery image at index ${imageIndex}`);
+      const response = await fetch(url, {
+        method: 'DELETE'
+      });
+      
+      if (!response.ok) {
+        const text = await response.text();
+        console.error('❌ Server error:', text);
+        return { success: false, error: `Server error: ${response.status}` };
+      }
+      
+      const result = await response.json();
+      console.log('🗑️ Delete response:', result);
+      return result;
+    } catch (error) {
+      console.error('❌ Error deleting gallery image:', error);
+      return { success: false, error: error.message };
+    }
   }
 };
 

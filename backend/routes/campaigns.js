@@ -209,6 +209,63 @@ router.post('/:campaignId/gallery', upload.array('images', 10), async (req, res)
   }
 });
 
+// Delete gallery image
+router.delete('/:campaignId/gallery/:imageIndex', async (req, res) => {
+  try {
+    const { campaignId, imageIndex } = req.params;
+    const index = parseInt(imageIndex);
+
+    const metadata = await CampaignMetadata.findOne({
+      where: { campaignId: parseInt(campaignId) }
+    });
+
+    if (!metadata) {
+      return res.status(404).json({ success: false, error: 'Campaign not found' });
+    }
+
+    const galleryImages = metadata.galleryImages || [];
+    
+    if (index < 0 || index >= galleryImages.length) {
+      return res.status(400).json({ success: false, error: 'Invalid image index' });
+    }
+
+    // Remove the image path from the array
+    const removedImage = galleryImages.splice(index, 1)[0];
+    
+    // Update the database with the new array
+    metadata.galleryImages = [...galleryImages];
+    metadata.changed('galleryImages', true);
+    await metadata.save();
+
+    console.log(`🗑️ Deleted gallery image at index ${index}: ${removedImage}`);
+    console.log(`📸 Remaining gallery images: ${galleryImages.length}`);
+
+    // Optionally delete the physical file from filesystem
+    if (removedImage) {
+      const fs = require('fs');
+      const path = require('path');
+      const filePath = path.join(__dirname, '..', removedImage);
+      
+      fs.unlink(filePath, (err) => {
+        if (err) {
+          console.warn(`⚠️ Could not delete file ${filePath}:`, err.message);
+        } else {
+          console.log(`✅ Deleted file: ${filePath}`);
+        }
+      });
+    }
+
+    res.json({ 
+      success: true, 
+      message: 'Gallery image deleted',
+      data: metadata 
+    });
+  } catch (error) {
+    console.error('❌ Error deleting gallery image:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // Add campaign update
 router.post('/:campaignId/updates', async (req, res) => {
   try {
