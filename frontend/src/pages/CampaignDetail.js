@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ethers } from 'ethers';
+import { Lightbox } from '../components/wizard';
+import useLightbox from '../hooks/useLightbox';
 import './CampaignDetail.css';
 
 const CampaignDetail = ({ 
@@ -24,10 +26,8 @@ const CampaignDetail = ({
   const [activeTab, setActiveTab] = useState('overview');
   const [leaderboard, setLeaderboard] = useState([]);
   
-  // Lightbox state for gallery
-  const [lightboxOpen, setLightboxOpen] = useState(false);
-  const [lightboxIndex, setLightboxIndex] = useState(0);
-  const [slideDirection, setSlideDirection] = useState('right');  const loadCampaignData = useCallback(async () => {
+  // Lightbox hook for gallery
+  const lightbox = useLightbox();  const loadCampaignData = useCallback(async () => {
     if (!contract || !account) {
       // Don't set loading to false yet, wait for contract to be ready
       return;
@@ -116,45 +116,12 @@ const CampaignDetail = ({
     navigate(`/campaign/${campaignId}/edit`);
   };
 
-  const openLightbox = (index) => {
-    setLightboxIndex(index);
-    setLightboxOpen(true);
-  };
-
-  const closeLightbox = () => {
-    setLightboxOpen(false);
-  };
-
-  const nextImage = () => {
+  const openGalleryLightbox = (index) => {
     if (metadata?.galleryImages) {
-      setSlideDirection('right');
-      setLightboxIndex((prev) => (prev + 1) % metadata.galleryImages.length);
+      const images = metadata.galleryImages.map(img => `http://localhost:3001${img}`);
+      lightbox.openLightbox(images, index);
     }
   };
-
-  const prevImage = () => {
-    if (metadata?.galleryImages) {
-      setSlideDirection('left');
-      setLightboxIndex((prev) => 
-        prev === 0 ? metadata.galleryImages.length - 1 : prev - 1
-      );
-    }
-  };
-
-  // Keyboard navigation for lightbox
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      if (!lightboxOpen) return;
-      
-      if (e.key === 'Escape') closeLightbox();
-      if (e.key === 'ArrowRight') nextImage();
-      if (e.key === 'ArrowLeft') prevImage();
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lightboxOpen, metadata?.galleryImages]);
 
   if (loading) {
     return (
@@ -383,7 +350,7 @@ const CampaignDetail = ({
                       <div 
                         key={idx} 
                         className="gallery-item"
-                        onClick={() => openLightbox(idx)}
+                        onClick={() => openGalleryLightbox(idx)}
                       >
                         <img 
                           src={`http://localhost:3001${image}`} 
@@ -521,38 +488,14 @@ const CampaignDetail = ({
       </div>
 
       {/* Lightbox Modal for Gallery */}
-      {lightboxOpen && metadata?.galleryImages && (
-        <div className="lightbox-overlay" onClick={closeLightbox}>
-          <button className="lightbox-close" onClick={closeLightbox}>×</button>
-          
-          <button 
-            className="lightbox-arrow lightbox-prev" 
-            onClick={(e) => { e.stopPropagation(); prevImage(); }}
-          >
-            ‹
-          </button>
-          
-          <div className="lightbox-content" onClick={(e) => e.stopPropagation()}>
-            <img 
-              key={lightboxIndex}
-              className={`lightbox-image slide-${slideDirection}`}
-              src={`http://localhost:3001${metadata.galleryImages[lightboxIndex]}`} 
-              alt={`Gallery ${lightboxIndex + 1}`}
-              onError={(e) => e.target.src = 'https://via.placeholder.com/800?text=Image'}
-            />
-            <div className="lightbox-caption">
-              {lightboxIndex + 1} / {metadata.galleryImages.length}
-            </div>
-          </div>
-          
-          <button 
-            className="lightbox-arrow lightbox-next" 
-            onClick={(e) => { e.stopPropagation(); nextImage(); }}
-          >
-            ›
-          </button>
-        </div>
-      )}
+      <Lightbox
+        isOpen={lightbox.isOpen}
+        images={lightbox.images}
+        currentIndex={lightbox.currentIndex}
+        onClose={lightbox.closeLightbox}
+        onNext={lightbox.nextImage}
+        onPrev={lightbox.prevImage}
+      />
     </div>
   );
 };

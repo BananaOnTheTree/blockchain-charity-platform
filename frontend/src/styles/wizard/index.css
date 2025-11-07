@@ -1,0 +1,7 @@
+/* Main Wizard Styles - Import all wizard-related CSS */
+
+@import './WizardLayout.css';
+@import './CategorySelector.css';
+@import './ImageUpload.css';
+@import './Lightbox.css';
+@import './CampaignSummary.css';

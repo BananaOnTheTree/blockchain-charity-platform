@@ -2,6 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ethers } from 'ethers';
 import { campaignAPI } from '../api';
+import {
+  FormField,
+  CategorySelector,
+  ImageUploader,
+  GalleryPreview,
+  Lightbox
+} from '../components/wizard';
+import useLightbox from '../hooks/useLightbox';
 import './EditCampaign.css';
 
 const EditCampaign = ({ campaignId, contract, account, showModal, onCancel }) => {
@@ -25,11 +33,9 @@ const EditCampaign = ({ campaignId, contract, account, showModal, onCancel }) =>
   const [newMainImage, setNewMainImage] = useState(null);
   const [newGalleryImages, setNewGalleryImages] = useState([]);
   const [mainImagePreview, setMainImagePreview] = useState(null);
-  const [galleryPreviews, setGalleryPreviews] = useState([]);
   
-  // Lightbox state
-  const [lightboxOpen, setLightboxOpen] = useState(false);
-  const [lightboxImage, setLightboxImage] = useState(null);
+  // Lightbox hook
+  const lightbox = useLightbox();
   
   // Delete confirmation modal state
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
@@ -113,8 +119,6 @@ const EditCampaign = ({ campaignId, contract, account, showModal, onCancel }) =>
   const handleGalleryImagesChange = (e) => {
     const files = Array.from(e.target.files);
     setNewGalleryImages(files);
-    const previews = files.map(file => URL.createObjectURL(file));
-    setGalleryPreviews(previews);
   };
 
   const handleDeleteGalleryImage = async (imageIndex, e) => {
@@ -154,14 +158,15 @@ const EditCampaign = ({ campaignId, contract, account, showModal, onCancel }) =>
     setImageToDelete(null);
   };
 
-  const handlePreviewGalleryImage = (imageUrl) => {
-    setLightboxImage(`http://localhost:3001${imageUrl}`);
-    setLightboxOpen(true);
+  const handlePreviewGalleryImage = (imageIndex) => {
+    if (metadata?.galleryImages) {
+      const images = metadata.galleryImages.map(img => `http://localhost:3001${img}`);
+      lightbox.openLightbox(images, imageIndex);
+    }
   };
 
-  const closeLightbox = () => {
-    setLightboxOpen(false);
-    setLightboxImage(null);
+  const handlePreviewNewGalleryImage = (imageIndex) => {
+    lightbox.openLightbox(newGalleryImages, imageIndex);
   };
 
   const handleSave = async (e) => {
@@ -265,31 +270,24 @@ const EditCampaign = ({ campaignId, contract, account, showModal, onCancel }) =>
           <h2>📜 Blockchain Data (Immutable Core)</h2>
           <p className="section-note">These fields are stored on the blockchain. Editing requires a transaction.</p>
 
-          <div className="form-group">
-            <label htmlFor="title">Campaign Title *</label>
-            <input
-              id="title"
-              type="text"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="Enter campaign title"
-              maxLength="100"
-              required
-            />
-          </div>
+          <FormField
+            label="Campaign Title"
+            type="text"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="Enter campaign title"
+            required
+          />
 
-          <div className="form-group">
-            <label htmlFor="description">Short Description</label>
-            <textarea
-              id="description"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Brief campaign description"
-              rows="4"
-              maxLength="500"
-            />
-            <small>{description.length}/500 characters</small>
-          </div>
+          <FormField
+            label="Short Description"
+            type="textarea"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="Brief campaign description"
+            rows={4}
+            helperText={`${description.length}/500 characters`}
+          />
 
           <div className="readonly-info">
             <div className="info-item">
@@ -313,103 +311,84 @@ const EditCampaign = ({ campaignId, contract, account, showModal, onCancel }) =>
           <h2>💾 Off-Chain Metadata (Flexible)</h2>
           <p className="section-note">These fields are stored in the database and can be updated freely.</p>
 
-          <div className="form-row">
-            <div className="form-group">
-              <label htmlFor="category">Category</label>
-              <select
-                id="category"
-                value={category}
-                onChange={(e) => setCategory(e.target.value)}
-              >
-                <option value="">Select category</option>
-                <option value="Health">Health</option>
-                <option value="Education">Education</option>
-                <option value="Environment">Environment</option>
-                <option value="Animals">Animals</option>
-                <option value="Community">Community</option>
-                <option value="Emergency">Emergency</option>
-                <option value="Other">Other</option>
-              </select>
-            </div>
+          <CategorySelector
+            selectedCategory={category}
+            onSelect={(cat) => setCategory(cat)}
+          />
 
-            <div className="form-group">
-              <label htmlFor="location">Location</label>
-              <input
-                id="location"
-                type="text"
-                value={location}
-                onChange={(e) => setLocation(e.target.value)}
-                placeholder="City, Country"
-              />
-            </div>
-          </div>
+          <FormField
+            label="Location"
+            type="text"
+            value={location}
+            onChange={(e) => setLocation(e.target.value)}
+            placeholder="City, Country"
+          />
 
-          <div className="form-group">
-            <label htmlFor="websiteUrl">Website URL</label>
-            <input
-              id="websiteUrl"
-              type="url"
-              value={websiteUrl}
-              onChange={(e) => setWebsiteUrl(e.target.value)}
-              placeholder="https://example.com"
-            />
-          </div>
+          <FormField
+            label="Website URL"
+            type="url"
+            value={websiteUrl}
+            onChange={(e) => setWebsiteUrl(e.target.value)}
+            placeholder="https://example.com"
+          />
 
-          <div className="form-group">
-            <label htmlFor="detailedDescription">Detailed Description</label>
-            <textarea
-              id="detailedDescription"
-              value={detailedDescription}
-              onChange={(e) => setDetailedDescription(e.target.value)}
-              placeholder="Provide a comprehensive description of your campaign, including goals, timeline, and impact..."
-              rows="10"
-              maxLength="5000"
-            />
-            <small>{detailedDescription.length}/5000 characters</small>
-          </div>
+          <FormField
+            label="Detailed Description"
+            type="textarea"
+            value={detailedDescription}
+            onChange={(e) => setDetailedDescription(e.target.value)}
+            placeholder="Provide a comprehensive description of your campaign, including goals, timeline, and impact..."
+            rows={10}
+            helperText={`${detailedDescription.length}/5000 characters`}
+          />
         </section>
 
         {/* Image Upload Section */}
         <section className="form-section">
           <h2>🖼️ Images</h2>
 
-          <div className="form-group">
-            <label htmlFor="mainImage">Main Campaign Image</label>
-            {(mainImagePreview || metadata?.imageUrl) && (
-              <div className="image-preview">
-                <img 
-                  src={mainImagePreview || `http://localhost:3001${metadata.imageUrl}`} 
-                  alt="Main campaign" 
-                />
-              </div>
-            )}
-            <input
-              id="mainImage"
-              type="file"
-              accept="image/*"
-              onChange={handleMainImageChange}
-            />
-            <small>Upload a new image to replace the current one (max 5MB)</small>
-          </div>
+          <ImageUploader
+            id="mainImage"
+            label="Main Campaign Image"
+            helperText="Upload a new image to replace the current one (max 5MB)"
+            onFileChange={handleMainImageChange}
+            onFileRemove={() => {
+              setNewMainImage(null);
+              setMainImagePreview(null);
+            }}
+            selectedFile={newMainImage}
+          />
 
-          <div className="form-group">
-            <label htmlFor="galleryImages">Additional Gallery Images</label>
-            {galleryPreviews.length > 0 && (
-              <div className="gallery-preview">
-                {galleryPreviews.map((preview, idx) => (
-                  <img key={idx} src={preview} alt={`Gallery ${idx + 1}`} />
-                ))}
-              </div>
-            )}
-            <input
-              id="galleryImages"
-              type="file"
-              accept="image/*"
-              multiple
-              onChange={handleGalleryImagesChange}
+          {(mainImagePreview || metadata?.imageUrl) && (
+            <div className="image-preview main-image-preview">
+              <img 
+                src={mainImagePreview || `http://localhost:3001${metadata.imageUrl}`} 
+                alt="Main campaign" 
+              />
+            </div>
+          )}
+
+          <ImageUploader
+            id="galleryImages"
+            label="Additional Gallery Images"
+            helperText="Select multiple images to add to gallery (max 10 images, 5MB each)"
+            multiple
+            onFileChange={handleGalleryImagesChange}
+            icon="🖼️"
+            primaryText="Add more images"
+            secondaryText="Select multiple files"
+          />
+
+          {newGalleryImages.length > 0 && (
+            <GalleryPreview
+              files={newGalleryImages}
+              onImageClick={handlePreviewNewGalleryImage}
+              onRemove={(index) => {
+                const updatedFiles = newGalleryImages.filter((_, i) => i !== index);
+                setNewGalleryImages(updatedFiles);
+              }}
             />
-            <small>Select multiple images to add to gallery (max 10 images, 5MB each)</small>
-          </div>
+          )}
 
           {metadata?.galleryImages && metadata.galleryImages.length > 0 && (
             <div className="current-gallery">
@@ -419,7 +398,7 @@ const EditCampaign = ({ campaignId, contract, account, showModal, onCancel }) =>
                   <div 
                     key={idx} 
                     className="gallery-image-container"
-                    onClick={() => handlePreviewGalleryImage(img)}
+                    onClick={() => handlePreviewGalleryImage(idx)}
                   >
                     <img 
                       src={`http://localhost:3001${img}`} 
@@ -464,13 +443,14 @@ const EditCampaign = ({ campaignId, contract, account, showModal, onCancel }) =>
       </form>
 
       {/* Lightbox Modal */}
-      {lightboxOpen && (
-        <div className="lightbox-overlay" onClick={closeLightbox}>
-          <div className="lightbox-content" onClick={(e) => e.stopPropagation()}>
-            <img src={lightboxImage} alt="Preview" />
-          </div>
-        </div>
-      )}
+      <Lightbox
+        isOpen={lightbox.isOpen}
+        images={lightbox.images}
+        currentIndex={lightbox.currentIndex}
+        onClose={lightbox.closeLightbox}
+        onNext={lightbox.nextImage}
+        onPrev={lightbox.prevImage}
+      />
 
       {/* Delete Confirmation Modal */}
       {deleteConfirmOpen && (
