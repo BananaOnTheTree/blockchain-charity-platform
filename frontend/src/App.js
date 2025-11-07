@@ -31,7 +31,7 @@ function App() {
   // Custom hooks
   const { modal, inputModal, showModal, closeModal, showInputModal, closeInputModal } = useModals();
   const { contract, account, networkError } = useWeb3(showModal);
-  const { campaigns, loading, loadCampaigns, donate, finalizeCampaign, claimRefund, editCampaign } = 
+  const { campaigns, loading, blockchainTime, loadCampaigns, donate, finalizeCampaign, claimRefund, editCampaign } = 
     useCampaignOperations(contract, account, showModal);
   const { newCampaign, setNewCampaign, createCampaign, loading: createLoading } = 
     useCreateCampaign(contract, showModal, loadCampaigns);
@@ -153,8 +153,9 @@ function App() {
               finalizeCampaign={finalizeCampaign}
               claimRefund={claimRefund}
               getProgressPercentage={getProgressPercentage}
-              isDeadlinePassed={isDeadlinePassed}
-              canFinalizeCampaign={canFinalizeCampaign}
+              isDeadlinePassed={(deadline) => isDeadlinePassed(deadline, blockchainTime)}
+              canFinalizeCampaign={(campaign) => canFinalizeCampaign(campaign, blockchainTime)}
+              blockchainTime={blockchainTime}
             />
             <Modal {...modal} onClose={closeModal} />
             <InputModal {...inputModal} onClose={closeInputModal} type="number" />
@@ -181,7 +182,8 @@ function App() {
               loading={loading}
               finalizeCampaign={finalizeCampaign}
               getProgressPercentage={getProgressPercentage}
-              canFinalizeCampaign={canFinalizeCampaign}
+              canFinalizeCampaign={(campaign) => canFinalizeCampaign(campaign, blockchainTime)}
+              blockchainTime={blockchainTime}
             />
             <Modal {...modal} onClose={closeModal} />
             <InputModal {...inputModal} onClose={closeInputModal} type="number" />

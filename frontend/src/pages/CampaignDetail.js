@@ -25,6 +25,7 @@ const CampaignDetail = ({
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState('overview');
   const [leaderboard, setLeaderboard] = useState([]);
+  const [blockchainTime, setBlockchainTime] = useState(null);
   
   // Lightbox hook for gallery
   const lightbox = useLightbox();  const loadCampaignData = useCallback(async () => {
@@ -53,6 +54,12 @@ const CampaignDetail = ({
         dbId: Number(campaignData[9])
       };
       setCampaign(parsedCampaign);
+
+      // Get current blockchain time
+      const provider = contract.runner.provider;
+      const blockNumber = await provider.getBlockNumber();
+      const block = await provider.getBlock(blockNumber);
+      setBlockchainTime(block.timestamp);
 
       // Load user's donation
       const userDonation = await contract.getContribution(campaignId, account);
@@ -163,9 +170,20 @@ const CampaignDetail = ({
     ? (Number(campaign.totalRaised) / Number(campaign.goal)) * 100 
     : 0;
   const goalReached = Number(campaign.totalRaised) >= Number(campaign.goal);
-  const isExpired = Number(campaign.deadline) * 1000 < Date.now();
+  
+  // Use blockchain time instead of Date.now() for accurate deadline checking
+  const currentTime = blockchainTime || Math.floor(Date.now() / 1000);
+  const isExpired = Number(campaign.deadline) < currentTime;
   
   // Debug logging
+  console.log('🔍 Campaign Status:', {
+    deadline: Number(campaign.deadline),
+    blockchainTime: currentTime,
+    isExpired: isExpired,
+    goalReached: goalReached,
+    finalized: campaign.finalized
+  });
+  
   console.log('🔍 Account check:', {
     account: account,
     creator: campaign.creator,
@@ -180,7 +198,7 @@ const CampaignDetail = ({
     && (goalReached || isExpired);
   const canClaimRefund = campaign.refundEnabled 
     && Number(donation) > 0 
-    && !campaign.finalized;
+    && campaign.finalized;
 
   const allImages = [
     metadata?.imageUrl,

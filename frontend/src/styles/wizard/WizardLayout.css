@@ -13,7 +13,8 @@
   background: white;
   border-radius: 20px;
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.08);
-  overflow: hidden;
+  overflow: visible;
+  position: relative;
 }
 
 .wizard-header {
@@ -43,6 +44,7 @@
   padding: 2rem 2rem 1.5rem;
   background: #f8f9fa;
   border-bottom: 1px solid #e9ecef;
+  overflow: hidden;
 }
 
 .progress-bar-track {
@@ -64,6 +66,7 @@
   display: flex;
   justify-content: space-between;
   gap: 1rem;
+  overflow: hidden;
 }
 
 .step-item {
@@ -75,6 +78,8 @@
   border-radius: 12px;
   transition: all 0.3s ease;
   cursor: default;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .step-item.active {

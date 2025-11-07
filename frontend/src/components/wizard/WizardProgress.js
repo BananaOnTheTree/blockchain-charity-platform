@@ -22,7 +22,6 @@ const WizardProgress = ({ steps, currentStep, onStepClick }) => {
               {currentStep > step.number ? '✓' : step.icon}
             </div>
             <div className="step-label">
-              <span className="step-number">Step {step.number}</span>
               <span className="step-title">{step.title}</span>
             </div>
           </div>

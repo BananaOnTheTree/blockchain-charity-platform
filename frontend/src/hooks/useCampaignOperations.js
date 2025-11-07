@@ -5,6 +5,7 @@ import { campaignAPI } from '../api';
 export const useCampaignOperations = (contract, account, showModal) => {
   const [campaigns, setCampaigns] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [blockchainTime, setBlockchainTime] = useState(null);
 
   const loadCampaigns = useCallback(async () => {
     console.log('🔍 loadCampaigns called - contract:', contract, 'account:', account);
@@ -18,6 +19,15 @@ export const useCampaignOperations = (contract, account, showModal) => {
       console.log('📡 Fetching campaign count...');
       const campaignCount = await contract.getCampaignCount();
       console.log('✅ Campaign count:', campaignCount.toString());
+      
+      // Get current blockchain time
+      const provider = contract.runner.provider;
+      const blockNumber = await provider.getBlockNumber();
+      const block = await provider.getBlock(blockNumber);
+      const currentBlockchainTime = block.timestamp;
+      setBlockchainTime(currentBlockchainTime);
+      console.log('⏰ Blockchain time:', new Date(currentBlockchainTime * 1000).toLocaleString());
+      
       const campaignsArray = [];
 
       for (let i = 0; i < campaignCount; i++) {
@@ -83,9 +93,31 @@ export const useCampaignOperations = (contract, account, showModal) => {
   const finalizeCampaign = async (campaignId) => {
     try {
       setLoading(true);
+      
+      // Get campaign details before finalizing to check if goal was reached
+      const campaign = await contract.getCampaign(campaignId);
+      const goalAmount = campaign[3];
+      const totalRaised = campaign[5];
+      const goalReached = totalRaised >= goalAmount;
+      
       const tx = await contract.finalizeCampaign(campaignId);
       await tx.wait();
-      showModal('Success!', 'Campaign finalized! Funds have been transferred to the beneficiary.', 'success');
+      
+      // Show appropriate message based on whether goal was reached
+      if (goalReached) {
+        showModal(
+          'Campaign Finalized! 🎉', 
+          `Goal reached! ${ethers.formatEther(totalRaised)} ETH has been transferred to the beneficiary.`, 
+          'success'
+        );
+      } else {
+        showModal(
+          'Campaign Finalized', 
+          `Campaign did not reach its goal. Refunds are now enabled for all donors. Total raised: ${ethers.formatEther(totalRaised)} ETH`, 
+          'info'
+        );
+      }
+      
       await loadCampaigns();
     } catch (error) {
       console.error('Error finalizing campaign:', error);
@@ -137,6 +169,7 @@ export const useCampaignOperations = (contract, account, showModal) => {
   return {
     campaigns,
     loading,
+    blockchainTime,
     loadCampaigns,
     donate,
     finalizeCampaign,
