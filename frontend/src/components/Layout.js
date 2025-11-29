@@ -13,7 +13,7 @@ const Layout = ({ account, loading, networkError, children }) => {
   return (
     <div className="App">
       <header className="App-header">
-        <h1>🌟 Charity Campaign Platform</h1>
+        <h1>🌟 KindnessChain</h1>
         <p>Connected Account: {account ? `${account.substring(0, 6)}...${account.substring(38)}` : 'Not Connected'}</p>
       </header>
 
@@ -58,7 +58,7 @@ const Layout = ({ account, loading, networkError, children }) => {
       <footer className="about-footer">
         <section className="about-section">
           <div className="divider-icon">✨</div>
-          <h2>About Charity Campaign Platform</h2>
+          <h2>About KindnessChain</h2>
           <div className="about-content">
             <div className="about-card">
               <h3>🎯 Our Mission</h3>

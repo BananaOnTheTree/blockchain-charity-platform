@@ -121,6 +121,7 @@
   overflow: hidden;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
   position: relative;
+  cursor: default;
 }
 
 .image-preview img {
@@ -132,6 +133,11 @@
 
 .image-preview:hover img {
   transform: scale(1.02);
+}
+
+/* indicate the preview is clickable when hovered */
+.image-preview:hover {
+  cursor: pointer;
 }
 
 .main-image-preview {
@@ -154,10 +160,12 @@
   color: white;
   font-weight: 600;
   font-size: 1rem;
+  pointer-events: none; /* allow clicks to pass through when overlay is hidden */
 }
 
 .image-preview:hover .preview-overlay {
   opacity: 1;
+  pointer-events: auto; /* enable overlay interaction when visible */
 }
 
 .preview-remove {
@@ -193,20 +201,32 @@
   margin-top: 2rem;
 }
 
+
 .gallery-preview {
   margin-top: 1.5rem;
+  width: 100%;
+  display: block; /* ensure heading + grid stack vertically and take full width */
 }
 
 .gallery-preview h4 {
   margin: 0 0 1rem 0;
+  display: block;
+  width: 100%;
+  text-align: left; /* keep the heading on the left above the images */
   color: #2c3e50;
   font-size: 1.1rem;
 }
 
+/* Horizontal gallery: display items in a row with horizontal scroll */
+
 .gallery-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  display: flex;
+  flex-wrap: wrap; /* allow items to wrap to next line */
   gap: 1rem;
+  overflow: visible; /* no horizontal scroll, allow wrapping */
+  padding-bottom: 0.5rem;
+  width: 100%;
+  justify-content: flex-start; /* place images below the caption, aligned to the left */
 }
 
 .gallery-item {
@@ -214,7 +234,8 @@
   border-radius: 12px;
   overflow: hidden;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  aspect-ratio: 1;
+  flex: 0 0 calc(33.333% - 0.666rem); /* three items per row (adjusts with gap) */
+  height: 220px; /* thumbnail height */
   transition: all 0.3s ease;
 }
 
@@ -223,16 +244,33 @@
   box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
 }
 
+
 .gallery-item img {
   width: 100%;
   height: 100%;
   object-fit: cover;
   cursor: pointer;
   transition: transform 0.3s ease;
+  display: block;
 }
 
 .gallery-item:hover img {
-  transform: scale(1.1);
+  transform: scale(1.03);
+}
+
+/* Responsive adjustments */
+@media (max-width: 1100px) {
+  .gallery-item {
+    flex: 0 0 calc(50% - 0.5rem); /* two items per row */
+    height: 200px;
+  }
+}
+
+@media (max-width: 600px) {
+  .gallery-item {
+    flex: 0 0 100%; /* one item per row on small screens */
+    height: 180px;
+  }
 }
 
 .gallery-remove {

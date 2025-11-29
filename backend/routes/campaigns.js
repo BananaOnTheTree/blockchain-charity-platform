@@ -72,7 +72,22 @@ router.patch('/:dbId/link', async (req, res) => {
       });
     }
 
-    metadata.campaignId = parseInt(campaignId);
+    // Validate campaignId
+    const parsedId = Number.isFinite(Number(campaignId)) ? parseInt(campaignId) : null;
+    if (parsedId === null || Number.isNaN(parsedId) || parsedId < 0) {
+      return res.status(400).json({ success: false, error: 'Invalid campaignId' });
+    }
+
+    // Ensure no other metadata record is already linked to this blockchain campaignId
+    const existing = await CampaignMetadata.findOne({ where: { campaignId: parsedId } });
+    if (existing && existing.id !== metadata.id) {
+      return res.status(400).json({
+        success: false,
+        error: `campaignId ${parsedId} is already linked to another record (dbId=${existing.id})`
+      });
+    }
+
+    metadata.campaignId = parsedId;
     await metadata.save();
 
     res.json({

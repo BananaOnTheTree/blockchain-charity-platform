@@ -8,7 +8,8 @@ const ImagePreview = ({ file, onClick, onRemove, className = '' }) => {
     : file;
 
   return (
-    <div className={`image-preview ${className}`}>
+    // make the whole preview clickable so overlay doesn't block clicks
+    <div className={`image-preview ${className}`} onClick={() => onClick && onClick()}>
       <img 
         src={imageUrl} 
         alt="Preview"

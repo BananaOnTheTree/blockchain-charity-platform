@@ -3,7 +3,7 @@ import React from 'react';
 const About = () => {
   return (
     <section className="about-section">
-      <h2>About Charity Campaign Platform</h2>
+  <h2>About KindnessChain</h2>
       <div className="about-content">
         <div className="about-card">
           <h3>🎯 Our Mission</h3>

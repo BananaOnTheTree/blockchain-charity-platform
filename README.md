@@ -1,4 +1,4 @@
-# Blockchain Charity Campaign Platform
+# KindnessChain
 
 A decentralized charity fundraising platform built on Ethereum. Create campaigns, accept donations, and automatically distribute funds or issue refunds based on campaign success.
 
@@ -222,7 +222,7 @@ CREATE DATABASE charity_platform;
 cd backend && npm start
 ```
 
-
+cp artifacts/contracts/CharityCampaignFactory.sol/CharityCampaignFactory.json frontend/src/
 
 ## 💡 How It Works
 
