@@ -33,54 +33,85 @@ const MyCampaigns = ({
                 👁 View
               </button>
               
-              <h3>{campaign.title}</h3>
-              <p className="description">{campaign.description}</p>
-              <p className="campaign-location"></p>
-              
-              <div className="campaign-metrics">
-                <div className="campaign-stats">
-                <div className="stat">
-                  <span className="label">Goal</span>
-                  <span className="value">{campaign.goalAmount} ETH</span>
+              {campaign.imageUrl && (
+                <div className="campaign-image">
+                  <img 
+                    src={`${process.env.REACT_APP_BACKEND_URL}${campaign.imageUrl}`} 
+                    alt={campaign.title}
+                  />
                 </div>
-                <div className="stat">
-                  <span className="label">Raised</span>
-                  <span className="value">{campaign.totalRaised} ETH</span>
-                </div>
-              </div>
-
-              <div className="progress-bar">
-                <div 
-                  className="progress-fill" 
-                  style={{width: `${getProgressPercentage(campaign.totalRaised, campaign.goalAmount)}%`}}
-                />
-                <p className="progress-text">
-                  {getProgressPercentage(campaign.totalRaised, campaign.goalAmount)}% funded
-                </p>
-              </div>
+              )}
               
-              <div className="stat" style={{marginTop: '0.5rem'}}>
-                <span className="label">Deadline</span>
-                <span className="value">{campaign.deadline.toLocaleDateString()}</span>
-              </div>
+              <div className="campaign-content">
+                <div className="campaign-header">
+                  <div style={{height: '1.8rem', marginBottom: '0.5rem'}}>
+                    {campaign.category && (
+                      <span className="campaign-category">{campaign.category}</span>
+                    )}
+                  </div>
+                  
+                  <h3>{campaign.title}</h3>
+                  <p className="description">{campaign.description}</p>
+                  
+                  {campaign.location ? (
+                    <p className="campaign-location">📍 {campaign.location}</p>
+                  ) : (
+                    <p className="campaign-location"></p>
+                  )}
+                </div>
+                
+                <div className="campaign-metrics">
+                  <div className="campaign-stats">
+                    <div className="stat">
+                      <span className="label">Goal</span>
+                      <span className="value">{campaign.goalAmount} ETH</span>
+                    </div>
+                    <div className="stat">
+                      <span className="label">Raised</span>
+                      <span className="value">{campaign.totalRaised} ETH</span>
+                    </div>
+                  </div>
 
-              <div className="campaign-actions">
-                {!campaign.finalized && canFinalizeCampaign(campaign) && (
-                  <button 
-                    onClick={() => finalizeCampaign(campaign.id)}
-                    disabled={loading}
-                    className="btn-secondary"
-                  >
-                    Finalize Campaign
-                  </button>
-                )}
+                  <div className="progress-bar">
+                    <div 
+                      className="progress-fill" 
+                      style={{width: `${getProgressPercentage(campaign.totalRaised, campaign.goalAmount)}%`}}
+                    />
+                    <p className="progress-text">
+                      {getProgressPercentage(campaign.totalRaised, campaign.goalAmount)}% funded
+                    </p>
+                  </div>
+                  
+                  <div className="stat" style={{marginTop: '0.5rem'}}>
+                    <span className="label">Deadline</span>
+                    <span className="value">{campaign.deadline.toLocaleDateString()}</span>
+                  </div>
 
-                {campaign.finalized && (
-                  <span className="status">
-                    {campaign.refundEnabled ? '❌ Goal Not Reached' : '✅ Successfully Funded'}
-                  </span>
-                )}
-              </div>
+                  <p className="user-contribution">
+                    Your contribution: {parseFloat(campaign.userContribution) > 0 
+                      ? `${campaign.userContribution} ETH`
+                      : '0 ETH'}
+                  </p>
+
+                  <div className="campaign-actions">
+                    {!campaign.finalized && canFinalizeCampaign(campaign) && 
+                     (campaign.creator.toLowerCase() === account.toLowerCase()) && (
+                      <button 
+                        onClick={() => finalizeCampaign(campaign.id)}
+                        disabled={loading}
+                        className="btn-secondary"
+                      >
+                        Finalize Campaign
+                      </button>
+                    )}
+
+                    {campaign.finalized && (
+                      <span className="status">
+                        {campaign.refundEnabled ? '❌ Goal Not Reached' : '✅ Successfully Funded'}
+                      </span>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
           ))}
