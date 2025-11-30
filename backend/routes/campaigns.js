@@ -81,14 +81,35 @@ router.patch('/:dbId/link', async (req, res) => {
     // Ensure no other metadata record is already linked to this blockchain campaignId
     const existing = await CampaignMetadata.findOne({ where: { campaignId: parsedId } });
     if (existing && existing.id !== metadata.id) {
-      return res.status(400).json({
-        success: false,
-        error: `campaignId ${parsedId} is already linked to another record (dbId=${existing.id})`
-      });
-    }
+      // If client explicitly requests a forced reassign, move the mapping from the old
+      // record to this one. This is useful for local/dev flows where blockchain IDs may
+      // be reused after a node reset. Force must be explicitly provided to avoid data loss.
+      const force = req.body.force === true || req.query.force === 'true';
 
-    metadata.campaignId = parsedId;
-    await metadata.save();
+      if (!force) {
+        return res.status(400).json({
+          success: false,
+          error: `campaignId ${parsedId} is already linked to another record (dbId=${existing.id}). To override, call again with { force: true }`,
+          existingDbId: existing.id
+        });
+      }
+
+      // Perform reassignment in a transaction to avoid race conditions
+      const sequelize = require('../config/sequelize');
+      await sequelize.transaction(async (t) => {
+        // Clear campaignId on the old record
+        existing.campaignId = null;
+        await existing.save({ transaction: t });
+
+        // Assign campaignId to the requested record
+        metadata.campaignId = parsedId;
+        await metadata.save({ transaction: t });
+      });
+    } else {
+      // No conflicting record - safe to assign
+      metadata.campaignId = parsedId;
+      await metadata.save();
+    }
 
     res.json({
       success: true,
@@ -355,6 +376,9 @@ router.put('/:campaignId', async (req, res) => {
     if (milestones) offChainData.milestones = milestones;
     if (faqs) offChainData.faqs = faqs;
     if (videoUrl) offChainData.videoUrl = videoUrl;
+  // AI-generated fields (optional)
+  if (typeof ai_summary !== 'undefined') offChainData.ai_summary = ai_summary;
+  if (typeof ai_risk_assessment !== 'undefined') offChainData.ai_risk_assessment = ai_risk_assessment;
 
     // Find or create metadata record
     let metadata = await CampaignMetadata.findOne({

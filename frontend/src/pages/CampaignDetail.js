@@ -25,6 +25,12 @@ const CampaignDetail = ({
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState('overview');
   const [leaderboard, setLeaderboard] = useState([]);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiSummary, setAiSummary] = useState(null);
+  const [aiRisk, setAiRisk] = useState(null);
+  const [aiCached, setAiCached] = useState(false);
+  const [aiError, setAiError] = useState(null);
+  const [aiOpen, setAiOpen] = useState(false);
   const [blockchainTime, setBlockchainTime] = useState(null);
   
   // Lightbox hook for gallery
@@ -103,6 +109,43 @@ const CampaignDetail = ({
   useEffect(() => {
     loadCampaignData();
   }, [loadCampaignData]);
+
+  // AI generate and save helpers
+  const generateAi = async () => {
+    setAiError(null);
+    setAiLoading(true);
+    setAiSummary(null);
+    setAiRisk(null);
+    setAiCached(false);
+    try {
+      const summaryResp = await fetch(`http://localhost:3001/api/ai/campaigns/${campaignId}/generate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'summary', title: campaign.title, description: campaign.description })
+      });
+      const summaryJson = await summaryResp.json();
+      if (!summaryJson.success) throw new Error(summaryJson.error || 'Summary generation failed');
+      setAiSummary(summaryJson.data);
+      if (summaryJson.cached) setAiCached(true);
+
+      const riskResp = await fetch(`http://localhost:3001/api/ai/campaigns/${campaignId}/generate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'risk', title: campaign.title, description: campaign.description })
+      });
+      const riskJson = await riskResp.json();
+      if (!riskJson.success) throw new Error(riskJson.error || 'Risk generation failed');
+      setAiRisk(riskJson.data);
+      if (riskJson.cached) setAiCached(true);
+    } catch (err) {
+      console.error('AI generation error', err);
+      setAiError(err.message || 'AI generation failed');
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
+  // Save functionality removed per request; AI only generates locally
 
   const handleDonateClick = () => {
     onDonate(campaignId);
@@ -349,6 +392,7 @@ const CampaignDetail = ({
             <div className="overview-tab">
               <h2>About This Campaign</h2>
               <p className="description">{campaign.description}</p>
+              {/* AI feature moved to floating bubble */}
               
               {metadata?.detailedDescription && (
                 <>
@@ -506,6 +550,41 @@ const CampaignDetail = ({
       </div>
 
       {/* Lightbox Modal for Gallery */}
+      {/* Floating AI Bubble (bottom-right) */}
+      <div className={`ai-bubble-wrapper ${aiOpen ? 'open' : ''}`}>
+        <div className="ai-bubble" onClick={() => setAiOpen(!aiOpen)} title="AI tools">
+          🤖
+        </div>
+        {aiOpen && (
+          <div className="ai-panel-floating">
+            <div className="ai-panel-header">
+              <strong>AI: Summary & Risk</strong>
+              <button className="btn-warning" onClick={() => { setAiOpen(false); }}>✕</button>
+            </div>
+            <div className="ai-panel-body">
+              <div style={{display: 'flex', gap: '8px', marginBottom: '8px'}}>
+                <button className="btn-secondary" onClick={generateAi} disabled={aiLoading}>{aiLoading ? 'Generating…' : 'Generate'}</button>
+              </div>
+              {aiError && <div className="ai-error">⚠️ {aiError}</div>}
+              {aiCached && <div className="ai-note">Cached result</div>}
+              {aiSummary && (
+                <div className="ai-result">
+                  <h4>Summary</h4>
+                  <div className="ai-text">{aiSummary.text || aiSummary}</div>
+                </div>
+              )}
+              {aiRisk && (
+                <div className="ai-result">
+                  <h4>Risk Assessment</h4>
+                  <pre className="ai-text" style={{whiteSpace: 'pre-wrap'}}>{aiRisk.text || JSON.stringify(aiRisk, null, 2)}</pre>
+                </div>
+              )}
+              {/* Save removed: generation only per current request */}
+            </div>
+          </div>
+        )}
+      </div>
+
       <Lightbox
         isOpen={lightbox.isOpen}
         images={lightbox.images}

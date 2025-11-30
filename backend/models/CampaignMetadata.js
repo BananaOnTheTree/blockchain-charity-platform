@@ -138,6 +138,34 @@ const CampaignMetadata = sequelize.define('CampaignMetadata', {
     defaultValue: 0,
     comment: 'Social shares count'
   }
+  ,
+  // === AI GENERATED FIELDS ===
+  ai_summary: {
+    type: DataTypes.TEXT,
+    allowNull: true,
+    comment: 'LLM generated short summary for the campaign'
+  },
+  ai_summary_generated_at: {
+    type: DataTypes.DATE,
+    allowNull: true
+  },
+  ai_summary_prompt: {
+    type: DataTypes.TEXT,
+    allowNull: true
+  },
+  ai_risk_assessment: {
+    type: DataTypes.JSON,
+    allowNull: true,
+    comment: 'LLM generated risk assessment object {verdict, reasons:[]}'
+  },
+  ai_risk_generated_at: {
+    type: DataTypes.DATE,
+    allowNull: true
+  },
+  ai_risk_prompt: {
+    type: DataTypes.TEXT,
+    allowNull: true
+  }
   
   // === REMOVED FIELDS (Use blockchain instead): ===
   // ❌ title - Get from blockchain

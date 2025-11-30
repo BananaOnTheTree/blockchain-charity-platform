@@ -20,6 +20,8 @@ app.use('/uploads', express.static('uploads'));
 // Routes
 app.use('/api/campaigns', require('./routes/campaigns'));
 app.use('/api/users', require('./routes/users'));
+// AI routes for generating summaries and risk assessments
+app.use('/api/ai', require('./routes/ai'));
 
 // Health check
 app.get('/api/health', (req, res) => {
@@ -38,7 +40,6 @@ const startServer = async () => {
 
     app.listen(PORT, () => {
       console.log(`🚀 Backend server running on http://localhost:${PORT}`);
-      console.log(`📊 API endpoints available at http://localhost:${PORT}/api`);
     });
   } catch (error) {
     console.error('❌ Unable to start server:', error);

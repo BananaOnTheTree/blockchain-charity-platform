@@ -591,6 +591,160 @@
   box-shadow: 0 4px 15px rgba(255, 255, 255, 0.3);
 }
 
+/* Reviews Section */
+.reviews-section {
+  padding: 4rem 2rem;
+  max-width: 1200px;
+  margin: 2rem auto;
+  background: rgba(255,255,255,0.95);
+  border-radius: 20px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+}
+
+.reviews-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 1.5rem;
+  margin-top: 2rem;
+}
+
+.review-card {
+  padding: 1.75rem;
+  border-radius: 18px;
+  background: #ffffff; /* pure white to contrast with green page background */
+  border-left: 6px solid #0fa07f; /* slightly darker, more saturated accent */
+  border: 1px solid rgba(15, 50, 46, 0.06); /* soft outline so edges are visible */
+  position: relative;
+  overflow: visible;
+  transition: transform 0.28s cubic-bezier(.2,.9,.3,1), box-shadow 0.28s ease;
+  transform-origin: center;
+  box-shadow: 0 8px 24px rgba(15,50,46,0.06); /* base shadow to lift card */
+}
+
+.review-card::before {
+  /* Decorative large quote */
+  content: '“';
+  position: absolute;
+  top: -12px;
+  left: 12px;
+  font-size: 3.6rem;
+  color: rgba(17,153,142,0.08);
+  transform: rotate(-12deg);
+  pointer-events: none;
+}
+
+.review-card:hover {
+  transform: translateY(-8px) scale(1.01);
+  box-shadow: 0 22px 48px rgba(15,50,46,0.16);
+}
+
+.review-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.9rem;
+}
+
+.review-name {
+  font-weight: 800;
+  color: #0f3b35;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.review-name::before {
+  /* small avatar-ish dot */
+  content: '';
+  width: 36px;
+  height: 36px;
+  background: linear-gradient(135deg,#11998e,#38ef7d);
+  border-radius: 50%;
+  display: inline-block;
+  box-shadow: 0 4px 10px rgba(17,153,142,0.2);
+}
+
+.review-stars .star {
+  font-size: 1.25rem;
+  margin-left: 4px;
+  color: #e6e6e6;
+  text-shadow: 0 1px 0 rgba(255,255,255,0.6);
+}
+
+.review-stars .star.filled {
+  color: #ffbf36; /* warm gold */
+  text-shadow: 0 1px 0 rgba(0,0,0,0.06);
+}
+
+.review-comment {
+  color: #2f3b36;
+  margin-bottom: 0.75rem;
+  font-style: normal;
+  font-size: 1.02rem;
+  line-height: 1.6;
+}
+
+.review-thought {
+  color: #086b5a;
+  font-weight: 700;
+  margin-top: 0.25rem;
+}
+
+/* subtle entrance animation for cards when they load */
+@keyframes riseIn {
+  from { transform: translateY(10px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+.reviews-grid .review-card {
+  animation: riseIn 420ms ease both;
+}
+
+/* Carousel behavior when space is constrained */
+.reviews-carousel {
+  width: 100%;
+  margin-top: 2rem;
+  overflow: hidden;
+}
+
+.reviews-carousel .reviews-grid {
+  display: flex;
+  gap: 1.5rem;
+  padding: 0.5rem 0.25rem;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Mobile-first: show one card prominently */
+.reviews-carousel .review-card {
+  flex: 0 0 85%;
+  min-width: 260px;
+  scroll-snap-align: start;
+}
+
+/* Medium+ screens: show ~3 cards per view and page by card width */
+@media (min-width: 700px) {
+  .reviews-carousel .review-card {
+    flex: 0 0 calc((100% - 3rem) / 3); /* 3 cards with two gaps (1.5rem each) */
+    min-width: 260px;
+  }
+}
+
+/* hide scrollbar but keep accessibility */
+.reviews-carousel .reviews-grid::-webkit-scrollbar {
+  height: 8px;
+}
+.reviews-carousel .reviews-grid::-webkit-scrollbar-thumb {
+  background: rgba(15,50,46,0.12);
+  border-radius: 8px;
+}
+.reviews-carousel .reviews-grid::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* ensure on wide screens we still use grid layout instead of horizontal scroll */
+/* Keep carousel behavior on wide screens too (we page by card width). */
+
 /* CTA Section */
 .cta-section {
   background: linear-gradient(135deg, #0f7c6f 0%, #2dbf7d 100%);
