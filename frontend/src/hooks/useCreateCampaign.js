@@ -25,7 +25,12 @@ export const useCreateCampaign = (contract, showModal, loadCampaigns) => {
       showModal('Missing Fields', 'Please fill in all required fields.', 'warning');
       return;
     }
-
+    // Guard: ensure contract is available before attempting blockchain call
+    if (!contract) {
+      console.error('Contract instance is not ready (null) when creating campaign');
+      showModal('Not Connected', 'Blockchain contract not available. Please connect your wallet and ensure the contract is deployed and the page is reloaded.', 'error');
+      return;
+    }
     try {
       setLoading(true);
       
@@ -50,9 +55,29 @@ export const useCreateCampaign = (contract, showModal, loadCampaigns) => {
       // Step 2: Create blockchain campaign with DB ID
       const goalInWei = ethers.parseEther(newCampaign.goalAmount);
       const durationInDays = parseInt(newCampaign.durationDays);
-      
+
+      // Validate/resolve beneficiary to an on-chain address.
+      let beneficiaryAddress = null;
+      try {
+        // Try to normalize as a hex address (throws if invalid)
+        beneficiaryAddress = ethers.getAddress(newCampaign.beneficiary);
+      } catch (err) {
+        // Not a direct hex address; attempt to resolve as ENS name if provider available
+        try {
+          const provider = (contract && contract.provider) || (contract && contract.signer && contract.signer.provider);
+          if (!provider) throw new Error('No provider available to resolve name');
+          const resolved = await provider.resolveName(newCampaign.beneficiary);
+          if (!resolved) throw new Error('Name did not resolve to an address');
+          beneficiaryAddress = resolved;
+        } catch (resolveErr) {
+          console.error('Failed to normalize or resolve beneficiary:', resolveErr);
+          showModal('Invalid Beneficiary', 'Beneficiary must be a valid Ethereum address. ENS names require a network that supports ENS (not available on local Hardhat). Please use a checksum address (0x...) instead.', 'error');
+          return;
+        }
+      }
+
       const tx = await contract.createCampaign(
-        newCampaign.beneficiary,
+        beneficiaryAddress,
         newCampaign.title,
         newCampaign.description || '',
         goalInWei,
