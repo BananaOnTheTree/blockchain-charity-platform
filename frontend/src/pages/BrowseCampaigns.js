@@ -18,7 +18,20 @@ const BrowseCampaigns = ({
     <section className="campaigns">
       <h2>Active Campaigns</h2>
       {campaigns.length === 0 ? (
-        <p>No campaigns yet. Create the first one!</p>
+        <div className="empty-campaigns">
+          <div className="empty-card">
+            <h3>No campaigns yet</h3>
+            <p>Create the first campaign and make an impact.</p>
+            <div className="empty-actions">
+              <button
+                className="btn-primary-large"
+                onClick={() => navigate('/create')}
+              >
+                Create Campaign
+              </button>
+            </div>
+          </div>
+        </div>
       ) : (
         <div className="campaign-grid">
           {campaigns.map((campaign) => (
