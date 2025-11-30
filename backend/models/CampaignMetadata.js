@@ -7,6 +7,13 @@ const CampaignMetadata = sequelize.define('CampaignMetadata', {
     primaryKey: true,
     autoIncrement: true
   },
+  uuid: {
+    type: DataTypes.UUID,
+    allowNull: false,
+    defaultValue: DataTypes.UUIDV4,
+    unique: true,
+    comment: 'Application-level UUID for the metadata record (stable across environments)'
+  },
   campaignId: {
     type: DataTypes.INTEGER,
     allowNull: true,
@@ -184,6 +191,10 @@ const CampaignMetadata = sequelize.define('CampaignMetadata', {
     {
       unique: true,
       fields: ['campaignId']
+    },
+    {
+      unique: true,
+      fields: ['uuid']
     },
     {
       fields: ['category']

@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import { ethers } from 'ethers';
 
 const Layout = ({ account, loading, networkError, children }) => {
   const location = useLocation();
@@ -10,11 +11,90 @@ const Layout = ({ account, loading, networkError, children }) => {
     return false;
   };
 
+  const [balance, setBalance] = useState(null);
+  const [logoError, setLogoError] = useState(false);
+  const [logoLoaded, setLogoLoaded] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+    const loadBalance = async () => {
+      try {
+        if (account && window.ethereum) {
+          const provider = new ethers.BrowserProvider(window.ethereum);
+          const bal = await provider.getBalance(account);
+          const eth = ethers.formatEther(bal);
+          if (mounted) setBalance(Number(eth));
+        } else {
+          if (mounted) setBalance(null);
+        }
+      } catch (err) {
+        console.error('Failed to fetch balance', err);
+        if (mounted) setBalance(null);
+      }
+    };
+    loadBalance();
+
+    return () => { mounted = false; };
+  }, [account]);
+
+  const shortAddress = account ? `${account.substring(0,6)}...${account.substring(account.length - 4)}` : null;
+
   return (
     <div className="App">
       <header className="App-header">
-        <h1>🌟 KindnessChain</h1>
-        <p>Connected Account: {account ? `${account.substring(0, 6)}...${account.substring(38)}` : 'Not Connected'}</p>
+        <div className="header-left">
+          <div className="logo-wrapper" aria-hidden="true">
+            {/* User-supplied logo: place your image at `frontend/public/logo.png` for automatic use.
+                Fallback to inline SVG if the image isn't present or fails to load. */}
+            {!logoError ? (
+              <img
+                src="/logo.png"
+                alt="KindnessChain logo"
+                className={`site-logo ${logoLoaded ? 'loaded' : ''}`}
+                onLoad={() => setLogoLoaded(true)}
+                onError={() => setLogoError(true)}
+                style={{width: '66px', height: '56px', objectFit: 'cover', borderRadius: '12px'}}
+              />
+            ) : (
+              <svg width="56" height="56" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect width="64" height="64" rx="12" fill="url(#g)" />
+                <path d="M20 36c0-8 12-14 12-14s12 6 12 14c0 10-12 16-12 16s-12-6-12-16z" fill="#fff" opacity="0.95"/>
+                <defs>
+                  <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+                    <stop offset="0" stopColor="#11998e"/>
+                    <stop offset="1" stopColor="#38ef7d"/>
+                  </linearGradient>
+                </defs>
+              </svg>
+            )}
+          </div>
+          <h1>KindnessChain</h1>
+        </div>
+
+        <div className="header-right">
+          {account ? (
+            <div className="wallet-card" title={account}>
+              <div className="wallet-avatar" aria-hidden>
+                {/* small gradient droplet as avatar */}
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M12 2C12 2 6 7 6 12a6 6 0 0012 0c0-5-6-10-6-10z" fill="url(#wg)"/>
+                  <defs>
+                    <linearGradient id="wg" x1="0" y1="0" x2="1" y2="1">
+                      <stop offset="0" stopColor="#06beb6"/>
+                      <stop offset="1" stopColor="#11998e"/>
+                    </linearGradient>
+                  </defs>
+                </svg>
+              </div>
+              <div className="wallet-details">
+                <div className="wallet-addr">{shortAddress}</div>
+                <div className="wallet-balance">{balance !== null ? Number(balance).toFixed(4) : '—'} ETH</div>
+              </div>
+            </div>
+          ) : (
+            <div className="wallet-card empty">Not Connected</div>
+          )}
+        </div>
       </header>
 
       <nav className="navigation">

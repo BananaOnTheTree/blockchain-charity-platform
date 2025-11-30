@@ -48,7 +48,10 @@ router.post('/init', async (req, res) => {
     res.json({
       success: true,
       message: 'Campaign record created',
+      // Keep returning the numeric DB id for compatibility with the smart contract flow,
+      // and also return the new UUID for off-chain references.
       dbId: metadata.id,
+      dbUuid: metadata.uuid,
       data: metadata
     });
   } catch (error) {
@@ -63,7 +66,12 @@ router.patch('/:dbId/link', async (req, res) => {
     const { dbId } = req.params;
     const { campaignId } = req.body;
 
-    const metadata = await CampaignMetadata.findByPk(dbId);
+    // Find by primary key (numeric dbId) for compatibility with the smart contract flow
+    const parsedDbId = Number.isFinite(Number(dbId)) ? parseInt(dbId) : null;
+    if (parsedDbId === null) {
+      return res.status(400).json({ success: false, error: 'Invalid dbId' });
+    }
+    const metadata = await CampaignMetadata.findByPk(parsedDbId);
     
     if (!metadata) {
       return res.status(404).json({

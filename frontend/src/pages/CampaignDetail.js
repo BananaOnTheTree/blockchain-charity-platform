@@ -467,8 +467,12 @@ const CampaignDetail = ({
             <h2>Campaign Details</h2>
             <div className="details-grid">
               <div className="detail-item">
-                <span className="detail-label">Campaign ID</span>
-                <span className="detail-value">#{campaignId.toString()}</span>
+                <span className="detail-label">Campaign UUID</span>
+                <span className="detail-value monospace">{
+                  metadata?.uuid
+                    ? `${metadata.uuid.substring(0,8)}...${metadata.uuid.substring(metadata.uuid.length - 4)}`
+                    : `#${campaignId.toString()}`
+                }</span>
               </div>
               <div className="detail-item">
                 <span className="detail-label">Creator</span>
