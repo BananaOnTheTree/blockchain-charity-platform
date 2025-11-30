@@ -64,7 +64,12 @@ router.post('/campaigns/:campaignId/generate', async (req, res) => {
     }
 
     // Load metadata from DB to build context
-    const metadata = await CampaignMetadata.findOne({ where: { campaignId: parseInt(campaignId) } });
+    let metadata = null;
+    if (/^\d+$/.test(campaignId)) {
+      metadata = await CampaignMetadata.findOne({ where: { campaignId: parseInt(campaignId) } });
+    } else {
+      metadata = await CampaignMetadata.findOne({ where: { uuid: campaignId } });
+    }
 
     const contextParts = [];
     if (title) contextParts.push(`Title: ${title}`);

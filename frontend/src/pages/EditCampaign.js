@@ -12,7 +12,7 @@ import {
 import useLightbox from '../hooks/useLightbox';
 import './EditCampaign.css';
 
-const EditCampaign = ({ campaignId, contract, account, showModal, onCancel }) => {
+const EditCampaign = ({ campaignUuid, contract, account, showModal, onCancel }) => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -44,7 +44,7 @@ const EditCampaign = ({ campaignId, contract, account, showModal, onCancel }) =>
   useEffect(() => {
     loadCampaignData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [campaignId, contract]);
+  }, [campaignUuid, contract]);
 
   const loadCampaignData = async () => {
     if (!contract || !account) return;
@@ -52,10 +52,20 @@ const EditCampaign = ({ campaignId, contract, account, showModal, onCancel }) =>
     try {
       setLoading(true);
 
-      // Load blockchain data
-      const campaignData = await contract.getCampaign(campaignId);
+      // Load metadata from backend (optional)
+      try {
+        const resp = await campaignAPI.getCampaign(campaignUuid);
+        if (resp && resp.success && resp.data) {
+          setMetadata(resp.data);
+        }
+      } catch (err) {
+        console.warn('Failed to load metadata by UUID', err);
+      }
+
+      // Load blockchain data directly using the UUID string
+      const campaignData = await contract.getCampaign(campaignUuid);
       const campaignInfo = {
-        id: campaignId,
+        id: campaignUuid,
         beneficiary: campaignData[0],
         title: campaignData[1],
         description: campaignData[2],
@@ -65,7 +75,7 @@ const EditCampaign = ({ campaignId, contract, account, showModal, onCancel }) =>
         finalized: campaignData[6],
         refundEnabled: campaignData[7],
         creator: campaignData[8],
-  dbUuid: campaignData[9]
+        dbUuid: campaignData[9]
       };
 
       setCampaign(campaignInfo);
@@ -85,19 +95,12 @@ const EditCampaign = ({ campaignId, contract, account, showModal, onCancel }) =>
         return;
       }
 
-      // Load metadata from backend
-      try {
-        const response = await campaignAPI.getCampaign(campaignId);
-        if (response.success) {
-          const meta = response.data;
-          setMetadata(meta);
-          setDetailedDescription(meta.detailedDescription || '');
-          setCategory(meta.category || '');
-          setLocation(meta.location || '');
-          setWebsiteUrl(meta.websiteUrl || '');
-        }
-      } catch (err) {
-        console.log('No metadata found');
+      // Load metadata from backend (already loaded above into `metadata` state)
+      if (metadata) {
+        setDetailedDescription(metadata.detailedDescription || '');
+        setCategory(metadata.category || '');
+        setLocation(metadata.location || '');
+        setWebsiteUrl(metadata.websiteUrl || '');
       }
 
       setLoading(false);
@@ -134,7 +137,7 @@ const EditCampaign = ({ campaignId, contract, account, showModal, onCancel }) =>
 
     try {
       setSaving(true);
-      const response = await campaignAPI.deleteGalleryImage(campaignId, imageToDelete);
+  const response = await campaignAPI.deleteGalleryImage(campaignUuid || (campaign && campaign.id), imageToDelete);
       
       if (response.success) {
         // Update local metadata state with the new gallery images
@@ -183,7 +186,7 @@ const EditCampaign = ({ campaignId, contract, account, showModal, onCancel }) =>
       // Step 1: Update blockchain data (title and description)
       if (title !== campaign.title || description !== campaign.description) {
         console.log('Updating blockchain data...');
-        const tx = await contract.editCampaign(campaignId, title, description);
+        const tx = await contract.editCampaign(campaign.id, title, description);
         await tx.wait();
         console.log('Blockchain updated successfully');
       }
@@ -203,7 +206,7 @@ const EditCampaign = ({ campaignId, contract, account, showModal, onCancel }) =>
       }
 
       // Upload metadata
-      await campaignAPI.uploadCampaignData(campaignId, formData);
+  await campaignAPI.uploadCampaignData(campaignUuid || (campaign && campaign.id), formData);
 
       // Step 3: Upload gallery images if any
       if (newGalleryImages.length > 0) {
@@ -215,7 +218,7 @@ const EditCampaign = ({ campaignId, contract, account, showModal, onCancel }) =>
         });
         
         try {
-          const result = await campaignAPI.uploadGalleryImages(campaignId, galleryFormData);
+    const result = await campaignAPI.uploadGalleryImages(campaignUuid || (campaign && campaign.id), galleryFormData);
           console.log('Gallery upload result:', result);
         } catch (galleryError) {
           console.error('Gallery upload failed:', galleryError);
@@ -224,7 +227,7 @@ const EditCampaign = ({ campaignId, contract, account, showModal, onCancel }) =>
       }
 
   showModal('Success!', 'Campaign updated successfully!', 'success');
-  navigate(`/campaign/${campaign?.dbUuid || campaignId}`);
+  navigate(`/campaign/${campaign?.dbUuid || campaignUuid}`);
     } catch (error) {
       console.error('Error updating campaign:', error);
       showModal('Error', 'Failed to update campaign: ' + error.message, 'error');
@@ -237,7 +240,7 @@ const EditCampaign = ({ campaignId, contract, account, showModal, onCancel }) =>
     if (onCancel) {
       onCancel();
     } else {
-      navigate(`/campaign/${campaign?.dbUuid || campaignId}`);
+  navigate(`/campaign/${campaign?.dbUuid || campaignUuid}`);
     }
   };
 
@@ -261,7 +264,7 @@ const EditCampaign = ({ campaignId, contract, account, showModal, onCancel }) =>
     <div className="edit-campaign-container">
       <div className="edit-campaign-header">
         <h1>✏️ Edit Campaign</h1>
-        <p className="campaign-id">Campaign #{campaignId}</p>
+  <p className="campaign-id">Campaign UUID: {campaign?.dbUuid || campaignUuid}</p>
       </div>
 
       <form onSubmit={handleSave} className="edit-campaign-form">

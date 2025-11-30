@@ -25,7 +25,7 @@ contract CharityCampaignFactory is Ownable, ReentrancyGuard {
         bool finalized;
         bool refundEnabled;
         address creator;
-    string dbUuid; // Database UUID for off-chain metadata
+        string dbUuid; // Database UUID for off-chain metadata (readable)
         bool paused; // Emergency pause by owner
         bool cancelled; // Cancelled by creator
         uint256 createdAt; // Campaign creation timestamp
@@ -37,14 +37,18 @@ contract CharityCampaignFactory is Ownable, ReentrancyGuard {
         bool refunded;
     }
 
-    Campaign[] public campaigns;
-    mapping(uint256 => mapping(address => uint256)) public contributions;
-    mapping(uint256 => mapping(address => Donation)) public donations; // Track individual donations with timestamp
-    mapping(address => uint256[]) public userCampaigns;
-    mapping(uint256 => address[]) public campaignDonors;
+    // Keyed by keccak256(abi.encodePacked(dbUuid))
+    mapping(bytes32 => Campaign) private campaigns;
+    mapping(bytes32 => mapping(address => uint256)) public contributions;
+    mapping(bytes32 => mapping(address => Donation)) public donations; // Track individual donations with timestamp
+    mapping(address => bytes32[]) public userCampaigns;
+    mapping(bytes32 => address[]) public campaignDonors;
+    // Enumeration and existence
+    bytes32[] public campaignKeys;
+    mapping(bytes32 => bool) public uuidExists;
 
     event CampaignCreated(
-        uint256 indexed campaignId,
+        bytes32 indexed uuidKey,
         address indexed creator,
         address indexed beneficiary,
         string title,
@@ -54,58 +58,66 @@ contract CharityCampaignFactory is Ownable, ReentrancyGuard {
     );
 
     event DonationReceived(
-        uint256 indexed campaignId,
+        bytes32 indexed uuidKey,
         address indexed donor,
         uint256 amount
     );
 
     event CampaignFinalized(
-        uint256 indexed campaignId,
+        bytes32 indexed uuidKey,
         uint256 totalRaised,
         bool goalReached
     );
 
     event RefundIssued(
-        uint256 indexed campaignId,
+        bytes32 indexed uuidKey,
         address indexed donor,
         uint256 amount
     );
 
+    // Debug/event to help trace beneficiary balance changes on finalize
+    event BeneficiaryBalanceChanged(
+        bytes32 indexed uuidKey,
+        address indexed beneficiary,
+        uint256 balanceBefore,
+        uint256 balanceAfter
+    );
+
     event CampaignEdited(
-        uint256 indexed campaignId,
+        bytes32 indexed uuidKey,
         string newTitle,
         string newDescription
     );
     
     event CampaignPaused(
-        uint256 indexed campaignId,
+        bytes32 indexed uuidKey,
         address indexed admin
     );
     
     event CampaignUnpaused(
-        uint256 indexed campaignId,
+        bytes32 indexed uuidKey,
         address indexed admin
     );
     
     event CampaignCancelled(
-        uint256 indexed campaignId,
+        bytes32 indexed uuidKey,
         address indexed creator,
         uint256 totalRefunded
     );
     
     event DonationCancelled(
-        uint256 indexed campaignId,
+        bytes32 indexed uuidKey,
         address indexed donor,
         uint256 amount
     );
 
-    modifier campaignExists(uint256 _campaignId) {
-        require(_campaignId < campaigns.length, "Campaign does not exist");
+    modifier campaignExists(bytes32 _uuidKey) {
+        require(uuidExists[_uuidKey], "Campaign does not exist");
         _;
     }
 
-    modifier campaignActive(uint256 _campaignId) {
-        Campaign memory campaign = campaigns[_campaignId];
+    modifier campaignActive(bytes32 _uuidKey) {
+        Campaign memory campaign = campaigns[_uuidKey];
         require(!campaign.finalized, "Campaign already finalized");
         require(!campaign.paused, "Campaign is paused");
         require(!campaign.cancelled, "Campaign has been cancelled");
@@ -113,8 +125,8 @@ contract CharityCampaignFactory is Ownable, ReentrancyGuard {
         _;
     }
     
-    modifier onlyCreatorOrOwner(uint256 _campaignId) {
-        Campaign memory campaign = campaigns[_campaignId];
+    modifier onlyCreatorOrOwner(bytes32 _uuidKey) {
+        Campaign memory campaign = campaigns[_uuidKey];
         require(
             msg.sender == campaign.creator || msg.sender == owner(),
             "Only creator or owner can perform this action"
@@ -140,7 +152,7 @@ contract CharityCampaignFactory is Ownable, ReentrancyGuard {
         uint256 _goalAmount,
         uint256 _durationDays,
         string memory _dbUuid
-    ) external returns (uint256) {
+    ) external returns (bytes32) {
         require(_beneficiary != address(0), "Invalid beneficiary address");
         require(_goalAmount >= MIN_GOAL_AMOUNT, "Goal amount too low");
         require(_durationDays > 0, "Duration must be positive");
@@ -153,6 +165,9 @@ contract CharityCampaignFactory is Ownable, ReentrancyGuard {
         require(durationInSeconds <= MAX_CAMPAIGN_DURATION, "Campaign duration too long");
 
         uint256 deadline = block.timestamp + durationInSeconds;
+
+        bytes32 uuidKey = keccak256(abi.encodePacked(_dbUuid));
+        require(!uuidExists[uuidKey], "UUID already used");
 
         Campaign memory newCampaign = Campaign({
             beneficiary: _beneficiary,
@@ -170,12 +185,13 @@ contract CharityCampaignFactory is Ownable, ReentrancyGuard {
             createdAt: block.timestamp
         });
 
-        campaigns.push(newCampaign);
-        uint256 campaignId = campaigns.length - 1;
-        userCampaigns[msg.sender].push(campaignId);
+        campaigns[uuidKey] = newCampaign;
+        userCampaigns[msg.sender].push(uuidKey);
+        campaignKeys.push(uuidKey);
+        uuidExists[uuidKey] = true;
 
         emit CampaignCreated(
-            campaignId,
+            uuidKey,
             msg.sender,
             _beneficiary,
             _title,
@@ -184,53 +200,66 @@ contract CharityCampaignFactory is Ownable, ReentrancyGuard {
             _dbUuid
         );
 
-        return campaignId;
+        return uuidKey;
+    }
+
+    /**
+     * @dev Helper to compute the bytes32 key for a UUID string
+     */
+    function _toUuidKey(string memory _dbUuid) internal pure returns (bytes32) {
+        return keccak256(abi.encodePacked(_dbUuid));
     }
 
     /**
      * @dev Donate to a campaign
-     * @param _campaignId ID of the campaign to donate to
+     * @param _dbUuid Database UUID of the campaign to donate to
      */
-    function donate(uint256 _campaignId)
+    function donate(string memory _dbUuid)
         external
         payable
-        campaignExists(_campaignId)
-        campaignActive(_campaignId)
         nonReentrant
     {
-        require(msg.value > 0, "Donation must be greater than 0");
+    bytes32 uuidKey = _toUuidKey(_dbUuid);
+    require(uuidExists[uuidKey], "Campaign does not exist");
+    Campaign storage campaign = campaigns[uuidKey];
+    require(!campaign.finalized, "Campaign already finalized");
+    require(!campaign.paused, "Campaign is paused");
+    require(!campaign.cancelled, "Campaign has been cancelled");
+    require(block.timestamp < campaign.deadline, "Campaign deadline passed");
 
-        Campaign storage campaign = campaigns[_campaignId];
-        
+    require(msg.value > 0, "Donation must be greater than 0");
+
         // Add donor to the list if this is their first contribution
-        if (contributions[_campaignId][msg.sender] == 0) {
-            campaignDonors[_campaignId].push(msg.sender);
+        if (contributions[uuidKey][msg.sender] == 0) {
+            campaignDonors[uuidKey].push(msg.sender);
         }
-        
+
         // Track donation with timestamp for grace period
-        donations[_campaignId][msg.sender] = Donation({
-            amount: donations[_campaignId][msg.sender].amount + msg.value,
+        donations[uuidKey][msg.sender] = Donation({
+            amount: donations[uuidKey][msg.sender].amount + msg.value,
             timestamp: block.timestamp,
             refunded: false
         });
-        
-        contributions[_campaignId][msg.sender] += msg.value;
+
+        contributions[uuidKey][msg.sender] += msg.value;
         campaign.totalRaised += msg.value;
 
-        emit DonationReceived(_campaignId, msg.sender, msg.value);
+        emit DonationReceived(uuidKey, msg.sender, msg.value);
     }
     
     /**
      * @dev Cancel donation within grace period (24 hours)
-     * @param _campaignId ID of the campaign
+     * @param _dbUuid Database UUID of the campaign
      */
-    function cancelDonation(uint256 _campaignId)
+    function cancelDonation(string memory _dbUuid)
         external
-        campaignExists(_campaignId)
         nonReentrant
     {
-        Campaign storage campaign = campaigns[_campaignId];
-        Donation storage donation = donations[_campaignId][msg.sender];
+    bytes32 uuidKey = _toUuidKey(_dbUuid);
+        require(uuidExists[uuidKey], "Campaign does not exist");
+
+        Campaign storage campaign = campaigns[uuidKey];
+        Donation storage donation = donations[uuidKey][msg.sender];
         
         require(!campaign.finalized, "Campaign already finalized");
         require(donation.amount > 0, "No donation found");
@@ -242,27 +271,30 @@ contract CharityCampaignFactory is Ownable, ReentrancyGuard {
         
         uint256 refundAmount = donation.amount;
         donation.refunded = true;
-        contributions[_campaignId][msg.sender] = 0;
+        contributions[uuidKey][msg.sender] = 0;
         campaign.totalRaised -= refundAmount;
         
         (bool success, ) = payable(msg.sender).call{value: refundAmount}("");
         require(success, "Refund transfer failed");
         
-        emit DonationCancelled(_campaignId, msg.sender, refundAmount);
+        emit DonationCancelled(uuidKey, msg.sender, refundAmount);
     }
 
     /**
      * @dev Edit campaign title and description
-     * @param _campaignId ID of the campaign to edit
+     * @param _dbUuid Database UUID of the campaign to edit
      * @param _newTitle New campaign title
      * @param _newDescription New campaign description
      */
     function editCampaign(
-        uint256 _campaignId,
+        string memory _dbUuid,
         string memory _newTitle,
         string memory _newDescription
-    ) external campaignExists(_campaignId) {
-        Campaign storage campaign = campaigns[_campaignId];
+    ) external {
+    bytes32 uuidKey = _toUuidKey(_dbUuid);
+        require(uuidExists[uuidKey], "Campaign does not exist");
+
+        Campaign storage campaign = campaigns[uuidKey];
         
         require(
             msg.sender == campaign.creator,
@@ -274,19 +306,21 @@ contract CharityCampaignFactory is Ownable, ReentrancyGuard {
         campaign.title = _newTitle;
         campaign.description = _newDescription;
         
-        emit CampaignEdited(_campaignId, _newTitle, _newDescription);
+        emit CampaignEdited(uuidKey, _newTitle, _newDescription);
     }
 
     /**
      * @dev Finalize campaign and transfer funds to beneficiary
-     * @param _campaignId ID of the campaign to finalize
+     * @param _dbUuid Database UUID of the campaign to finalize
      */
-    function finalizeCampaign(uint256 _campaignId)
+    function finalizeCampaign(string memory _dbUuid)
         external
-        campaignExists(_campaignId)
         nonReentrant
     {
-        Campaign storage campaign = campaigns[_campaignId];
+    bytes32 uuidKey = _toUuidKey(_dbUuid);
+        require(uuidExists[uuidKey], "Campaign does not exist");
+
+        Campaign storage campaign = campaigns[uuidKey];
         
         require(!campaign.finalized, "Campaign already finalized");
         require(
@@ -306,52 +340,59 @@ contract CharityCampaignFactory is Ownable, ReentrancyGuard {
 
         if (goalReached && campaign.totalRaised > 0) {
             // Transfer funds to beneficiary
+            uint256 balanceBefore = campaign.beneficiary.balance;
             (bool success, ) = campaign.beneficiary.call{value: campaign.totalRaised}("");
             require(success, "Transfer to beneficiary failed");
+            uint256 balanceAfter = campaign.beneficiary.balance;
+            emit BeneficiaryBalanceChanged(uuidKey, campaign.beneficiary, balanceBefore, balanceAfter);
         } else if (!goalReached && campaign.totalRaised > 0) {
             // Enable refunds if goal not reached
             campaign.refundEnabled = true;
         }
 
-        emit CampaignFinalized(_campaignId, campaign.totalRaised, goalReached);
+        emit CampaignFinalized(uuidKey, campaign.totalRaised, goalReached);
     }
 
     /**
      * @dev Claim refund if campaign failed to reach goal
-     * @param _campaignId ID of the campaign to claim refund from
+     * @param _dbUuid Database UUID of the campaign to claim refund from
      */
-    function claimRefund(uint256 _campaignId)
+    function claimRefund(string memory _dbUuid)
         external
-        campaignExists(_campaignId)
         nonReentrant
     {
-        Campaign storage campaign = campaigns[_campaignId];
+    bytes32 uuidKey = _toUuidKey(_dbUuid);
+        require(uuidExists[uuidKey], "Campaign does not exist");
+        
+        Campaign storage campaign = campaigns[uuidKey];
         
         require(campaign.finalized, "Campaign not finalized");
         require(campaign.refundEnabled, "Refunds not enabled for this campaign");
         
-        uint256 contributedAmount = contributions[_campaignId][msg.sender];
+        uint256 contributedAmount = contributions[uuidKey][msg.sender];
         require(contributedAmount > 0, "No contribution to refund");
 
-        contributions[_campaignId][msg.sender] = 0;
+        contributions[uuidKey][msg.sender] = 0;
 
         (bool success, ) = payable(msg.sender).call{value: contributedAmount}("");
         require(success, "Refund transfer failed");
 
-        emit RefundIssued(_campaignId, msg.sender, contributedAmount);
+        emit RefundIssued(uuidKey, msg.sender, contributedAmount);
     }
     
     /**
      * @dev Cancel campaign and enable refunds for all donors (creator only, before finalization)
-     * @param _campaignId ID of the campaign to cancel
+     * @param _dbUuid Database UUID of the campaign to cancel
      */
-    function cancelCampaign(uint256 _campaignId)
+    function cancelCampaign(string memory _dbUuid)
         external
-        campaignExists(_campaignId)
-        onlyCreatorOrOwner(_campaignId)
+        onlyCreatorOrOwner(_toUuidKey(_dbUuid))
         nonReentrant
     {
-        Campaign storage campaign = campaigns[_campaignId];
+        bytes32 uuidKey = _toUuidKey(_dbUuid);
+        require(uuidExists[uuidKey], "Campaign does not exist");
+        
+        Campaign storage campaign = campaigns[uuidKey];
         
         require(!campaign.finalized, "Cannot cancel finalized campaign");
         require(!campaign.cancelled, "Campaign already cancelled");
@@ -361,52 +402,55 @@ contract CharityCampaignFactory is Ownable, ReentrancyGuard {
         
         uint256 totalToRefund = campaign.totalRaised;
         
-        emit CampaignCancelled(_campaignId, msg.sender, totalToRefund);
+        emit CampaignCancelled(uuidKey, msg.sender, totalToRefund);
     }
     
     /**
      * @dev Emergency pause campaign (owner only)
-     * @param _campaignId ID of the campaign to pause
+     * @param _dbUuid Database UUID of the campaign to pause
      */
-    function pauseCampaign(uint256 _campaignId)
+    function pauseCampaign(string memory _dbUuid)
         external
         onlyOwner
-        campaignExists(_campaignId)
     {
-        Campaign storage campaign = campaigns[_campaignId];
+    bytes32 uuidKey = _toUuidKey(_dbUuid);
+        require(uuidExists[uuidKey], "Campaign does not exist");
+
+        Campaign storage campaign = campaigns[uuidKey];
         require(!campaign.paused, "Campaign already paused");
         require(!campaign.finalized, "Cannot pause finalized campaign");
         
         campaign.paused = true;
         
-        emit CampaignPaused(_campaignId, msg.sender);
+        emit CampaignPaused(uuidKey, msg.sender);
     }
     
     /**
      * @dev Unpause campaign (owner only)
-     * @param _campaignId ID of the campaign to unpause
+     * @param _dbUuid Database UUID of the campaign to unpause
      */
-    function unpauseCampaign(uint256 _campaignId)
+    function unpauseCampaign(string memory _dbUuid)
         external
         onlyOwner
-        campaignExists(_campaignId)
     {
-        Campaign storage campaign = campaigns[_campaignId];
+    bytes32 uuidKey = _toUuidKey(_dbUuid);
+        require(uuidExists[uuidKey], "Campaign does not exist");
+
+        Campaign storage campaign = campaigns[uuidKey];
         require(campaign.paused, "Campaign not paused");
         
         campaign.paused = false;
         
-        emit CampaignUnpaused(_campaignId, msg.sender);
+        emit CampaignUnpaused(uuidKey, msg.sender);
     }
 
     /**
      * @dev Get campaign details
-     * @param _campaignId ID of the campaign
+     * @param _dbUuid Database UUID of the campaign
      */
-    function getCampaign(uint256 _campaignId)
+    function getCampaign(string memory _dbUuid)
         external
         view
-        campaignExists(_campaignId)
         returns (
             address beneficiary,
             string memory title,
@@ -417,13 +461,16 @@ contract CharityCampaignFactory is Ownable, ReentrancyGuard {
             bool finalized,
             bool refundEnabled,
             address creator,
-                string memory dbUuid,
+            string memory dbUuid,
             bool paused,
             bool cancelled,
             uint256 createdAt
         )
     {
-        Campaign memory campaign = campaigns[_campaignId];
+    bytes32 uuidKey = _toUuidKey(_dbUuid);
+        require(uuidExists[uuidKey], "Campaign does not exist");
+
+        Campaign memory campaign = campaigns[uuidKey];
         return (
             campaign.beneficiary,
             campaign.title,
@@ -434,7 +481,49 @@ contract CharityCampaignFactory is Ownable, ReentrancyGuard {
             campaign.finalized,
             campaign.refundEnabled,
             campaign.creator,
-                campaign.dbUuid,
+            campaign.dbUuid,
+            campaign.paused,
+            campaign.cancelled,
+            campaign.createdAt
+        );
+    }
+
+    /**
+     * @dev Get campaign details by bytes32 key (on-chain enumeration friendly)
+     * @param _uuidKey bytes32 keccak256 hash of the DB UUID string
+     */
+    function getCampaignByKey(bytes32 _uuidKey)
+        external
+        view
+        returns (
+            address beneficiary,
+            string memory title,
+            string memory description,
+            uint256 goalAmount,
+            uint256 deadline,
+            uint256 totalRaised,
+            bool finalized,
+            bool refundEnabled,
+            address creator,
+            string memory dbUuid,
+            bool paused,
+            bool cancelled,
+            uint256 createdAt
+        )
+    {
+        require(uuidExists[_uuidKey], "Campaign does not exist");
+        Campaign memory campaign = campaigns[_uuidKey];
+        return (
+            campaign.beneficiary,
+            campaign.title,
+            campaign.description,
+            campaign.goalAmount,
+            campaign.deadline,
+            campaign.totalRaised,
+            campaign.finalized,
+            campaign.refundEnabled,
+            campaign.creator,
+            campaign.dbUuid,
             campaign.paused,
             campaign.cancelled,
             campaign.createdAt
@@ -445,46 +534,50 @@ contract CharityCampaignFactory is Ownable, ReentrancyGuard {
      * @dev Get total number of campaigns
      */
     function getCampaignCount() external view returns (uint256) {
-        return campaigns.length;
+        return campaignKeys.length;
     }
 
     /**
      * @dev Get contribution amount for a donor in a campaign
-     * @param _campaignId Campaign ID
+     * @param _dbUuid Database UUID of the campaign
      * @param _donor Donor address
      */
-    function getContribution(uint256 _campaignId, address _donor)
+    function getContribution(string memory _dbUuid, address _donor)
         external
         view
         returns (uint256)
     {
-        return contributions[_campaignId][_donor];
+    bytes32 uuidKey = _toUuidKey(_dbUuid);
+        require(uuidExists[uuidKey], "Campaign does not exist");
+        return contributions[uuidKey][_donor];
     }
 
     /**
-     * @dev Get all campaign IDs created by a user
+     * @dev Get all campaign UUIDs created by a user
      * @param _creator Creator address
      */
     function getUserCampaigns(address _creator)
         external
         view
-        returns (uint256[] memory)
+        returns (bytes32[] memory)
     {
         return userCampaigns[_creator];
     }
 
     /**
      * @dev Get top donors for a campaign (leaderboard)
-     * @param _campaignId Campaign ID
+     * @param _dbUuid Database UUID of the campaign
      * @param _limit Maximum number of top donors to return
      */
-    function getTopDonors(uint256 _campaignId, uint256 _limit)
+    function getTopDonors(string memory _dbUuid, uint256 _limit)
         external
         view
-        campaignExists(_campaignId)
         returns (address[] memory donors, uint256[] memory amounts)
     {
-        address[] memory allDonors = campaignDonors[_campaignId];
+    bytes32 uuidKey = _toUuidKey(_dbUuid);
+        require(uuidExists[uuidKey], "Campaign does not exist");
+
+        address[] memory allDonors = campaignDonors[uuidKey];
         uint256 donorCount = allDonors.length;
         
         if (donorCount == 0) {
@@ -501,7 +594,7 @@ contract CharityCampaignFactory is Ownable, ReentrancyGuard {
         // Copy donors and their contributions
         for (uint256 i = 0; i < donorCount; i++) {
             tempDonors[i] = allDonors[i];
-            tempAmounts[i] = contributions[_campaignId][allDonors[i]];
+            tempAmounts[i] = contributions[uuidKey][allDonors[i]];
         }
         
         // Bubble sort (descending order by amount)

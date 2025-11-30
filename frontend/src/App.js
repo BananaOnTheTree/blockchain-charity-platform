@@ -103,7 +103,7 @@ function App() {
       <Layout account={account} loading={loading} networkError={networkError}>
         <CampaignDetail
           key={refreshKey}
-          campaignId={resolvedCampaignId !== null ? resolvedCampaignId : (campaignUuid ? (isNaN(Number(campaignUuid)) ? null : Number(campaignUuid)) : null)}
+          campaignUuid={campaignUuid}
           contract={contract}
           account={account}
           onBack={() => navigate('/')}
@@ -134,7 +134,7 @@ function App() {
 
     return (
       <EditCampaign
-        campaignId={resolvedCampaignId !== null ? resolvedCampaignId : (campaignUuid ? (isNaN(Number(campaignUuid)) ? null : Number(campaignUuid)) : null)}
+        campaignUuid={campaignUuid}
         contract={contract}
         account={account}
         showModal={showModal}

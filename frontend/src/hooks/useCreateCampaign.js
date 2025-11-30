@@ -86,19 +86,30 @@ export const useCreateCampaign = (contract, showModal, loadCampaigns) => {
       );
       
       const receipt = await tx.wait();
-      const campaignId = Number(await contract.getCampaignCount()) - 1;
-      console.log('Created blockchain campaign with ID:', campaignId);
-      
-      // Step 3: Link the database record to the blockchain campaign ID
-  // Link backend record by UUID to the blockchain campaignId
-  await campaignAPI.linkCampaign(dbUuid, campaignId);
-      console.log('Linked DB record to blockchain campaign');
+      // Try to extract the created uuidKey from the emitted event (CampaignCreated)
+      try {
+        const createdEvent = receipt.events?.find((e) => e.event === 'CampaignCreated');
+        if (createdEvent) {
+          const uuidKey = createdEvent.args?.[0];
+          console.log('Created blockchain campaign uuidKey:', uuidKey);
+        } else {
+          console.log('CampaignCreated event not found in receipt; campaign created but no on-chain return value in transaction receipt');
+        }
+      } catch (err) {
+        console.warn('Could not parse receipt for CampaignCreated event:', err);
+      }
+
+      // NOTE: backend linking endpoint historically expected a numeric campaignId. The contract now uses db UUIDs
+      // as canonical identifiers. The DB record already contains the UUID returned from initCampaign, so explicit
+      // linking by numeric id is no longer required here. If you want to persist the on-chain bytes32 key in the
+      // database, update the backend to accept and store it.
       
       // Step 4: Upload image if provided
       if (newCampaign.imageFile) {
         const formData = new FormData();
         formData.append('image', newCampaign.imageFile);
-        await campaignAPI.uploadCampaignData(campaignId, formData);
+        // Use the UUID in the API path (backend accepts UUID or numeric id)
+        await campaignAPI.uploadCampaignData(dbUuid, formData);
       }
       
       showModal('Success!', 'Campaign created successfully with database integration!', 'success');

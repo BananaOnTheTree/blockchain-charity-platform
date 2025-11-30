@@ -16,10 +16,10 @@ export const useCampaignOperations = (contract, account, showModal) => {
 
     try {
       setLoading(true);
-      console.log('📡 Fetching campaign count...');
+      console.log('📡 Fetching campaigns from chain (on-chain-first enumeration)');
       const campaignCount = await contract.getCampaignCount();
-      console.log('✅ Campaign count:', campaignCount.toString());
-      
+      console.log('✅ Campaign count (on-chain):', campaignCount.toString());
+
       // Get current blockchain time
       const provider = contract.runner.provider;
       const blockNumber = await provider.getBlockNumber();
@@ -27,40 +27,53 @@ export const useCampaignOperations = (contract, account, showModal) => {
       const currentBlockchainTime = block.timestamp;
       setBlockchainTime(currentBlockchainTime);
       console.log('⏰ Blockchain time:', new Date(currentBlockchainTime * 1000).toLocaleString());
-      
+
       const campaignsArray = [];
 
+      // Enumerate on-chain keys and fetch campaigns by key
       for (let i = 0; i < campaignCount; i++) {
-        console.log(`📥 Loading campaign ${i}...`);
-        const campaign = await contract.getCampaign(i);
-        console.log(`  Title: ${campaign[1]}`);
-        const userContribution = await contract.getContribution(i, account);
-        
-        let metadata = null;
         try {
-          const response = await campaignAPI.getCampaign(i);
-          metadata = response.data;
-        } catch (err) {
-          console.log(`No metadata found for campaign ${i}`);
-        }
+          const key = await contract.campaignKeys(i);
+          console.log(`📥 Loading campaign (key): ${key}`);
 
-        campaignsArray.push({
-          id: i,
-          beneficiary: campaign[0],
-          title: campaign[1],
-          description: campaign[2],
-          goalAmount: ethers.formatEther(campaign[3]),
-          deadline: new Date(Number(campaign[4]) * 1000),
-          totalRaised: ethers.formatEther(campaign[5]),
-          finalized: campaign[6],
-          refundEnabled: campaign[7],
-          creator: campaign[8],
-          dbUuid: campaign[9], // Database UUID from blockchain
-          userContribution: ethers.formatEther(userContribution),
-          category: metadata?.category,
-          location: metadata?.location,
-          imageUrl: metadata?.imageUrl
-        });
+          // New contract getter that returns campaign by bytes32 key
+          const campaign = await contract.getCampaignByKey(key);
+          console.log(`  Title: ${campaign[1]}`);
+
+          // dbUuid is returned as part of the campaign struct
+          const dbUuid = campaign[9];
+
+          const userContribution = await contract.getContribution(dbUuid, account);
+
+          // Optionally overlay backend metadata if present
+          let metadata = null;
+          try {
+            const response = await campaignAPI.getCampaign(encodeURIComponent(dbUuid));
+            metadata = response.data;
+          } catch (err) {
+            // Not critical — on-chain is source of truth
+          }
+
+          campaignsArray.push({
+            id: dbUuid,
+            beneficiary: campaign[0],
+            title: campaign[1],
+            description: campaign[2],
+            goalAmount: ethers.formatEther(campaign[3]),
+            deadline: new Date(Number(campaign[4]) * 1000),
+            totalRaised: ethers.formatEther(campaign[5]),
+            finalized: campaign[6],
+            refundEnabled: campaign[7],
+            creator: campaign[8],
+            dbUuid: dbUuid,
+            userContribution: ethers.formatEther(userContribution),
+            category: metadata?.category,
+            location: metadata?.location,
+            imageUrl: metadata?.imageUrl
+          });
+        } catch (err) {
+          console.error('Failed to load on-chain campaign at index', i, err);
+        }
       }
 
       console.log('✅ Total campaigns loaded:', campaignsArray.length, campaignsArray);
@@ -101,7 +114,28 @@ export const useCampaignOperations = (contract, account, showModal) => {
       const goalReached = totalRaised >= goalAmount;
       
       const tx = await contract.finalizeCampaign(campaignId);
-      await tx.wait();
+      const receipt = await tx.wait();
+
+      // Look for BeneficiaryBalanceChanged event and log before/after balances
+      try {
+        const ev = receipt.events && receipt.events.find((e) => e.event === 'BeneficiaryBalanceChanged');
+        if (ev && ev.args) {
+          const uuidKey = ev.args[0] || ev.args.uuidKey;
+          const beneficiary = ev.args[1] || ev.args.beneficiary;
+          const balanceBefore = ev.args[2] || ev.args.balanceBefore;
+          const balanceAfter = ev.args[3] || ev.args.balanceAfter;
+          try {
+            console.log(`BeneficiaryBalanceChanged - uuidKey: ${uuidKey}, beneficiary: ${beneficiary}`);
+            console.log(`  balanceBefore: ${ethers.formatEther(balanceBefore)} ETH`);
+            console.log(`  balanceAfter:  ${ethers.formatEther(balanceAfter)} ETH`);
+          } catch (formatErr) {
+            // Fallback to raw values
+            console.log('BeneficiaryBalanceChanged raw:', { uuidKey, beneficiary, balanceBefore: String(balanceBefore), balanceAfter: String(balanceAfter) });
+          }
+        }
+      } catch (evErr) {
+        console.warn('Could not parse BeneficiaryBalanceChanged event from receipt', evErr);
+      }
       
       // Show appropriate message based on whether goal was reached
       if (goalReached) {

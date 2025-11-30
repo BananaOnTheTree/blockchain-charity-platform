@@ -115,34 +115,69 @@ router.patch('/:dbUuid/link', async (req, res) => {
   }
 });
 
+// Helper: resolve identifier which may be numeric campaignId or a UUID (dbUuid)
+async function findMetadataByIdentifier(identifier) {
+  if (!identifier) return null;
+  // If it looks like a numeric id (all digits), treat as campaignId
+  if (/^\d+$/.test(identifier)) {
+    return await CampaignMetadata.findOne({ where: { campaignId: parseInt(identifier) } });
+  }
+
+  // Otherwise treat as db UUID
+  return await CampaignMetadata.findOne({ where: { uuid: identifier } });
+}
+
 // Create or update campaign metadata
 router.post('/:campaignId', upload.single('image'), async (req, res) => {
   try {
-    const { campaignId } = req.params;
+    const { campaignId: identifier } = req.params;
     const { category, location, detailedDescription, websiteUrl, socialMedia } = req.body;
 
-    const metadata = {
-      campaignId: parseInt(campaignId),
-      category,
-      location,
-      detailedDescription,
-      websiteUrl,
-      socialMedia: socialMedia ? JSON.parse(socialMedia) : {}
-    };
+    const isNumeric = /^\d+$/.test(identifier);
 
-    if (req.file) {
-      metadata.imageUrl = `/uploads/campaigns/${req.file.filename}`;
+    // If identifier is numeric we allow upsert by campaignId (existing behavior)
+    if (isNumeric) {
+      const metadata = {
+        campaignId: parseInt(identifier),
+        category,
+        location,
+        detailedDescription,
+        websiteUrl,
+        socialMedia: socialMedia ? JSON.parse(socialMedia) : {}
+      };
+
+      if (req.file) {
+        metadata.imageUrl = `/uploads/campaigns/${req.file.filename}`;
+      }
+
+      const [campaign, created] = await CampaignMetadata.upsert(metadata, {
+        returning: true
+      });
+
+      return res.json({
+        success: true,
+        message: created ? 'Campaign metadata created' : 'Campaign metadata updated',
+        data: campaign
+      });
     }
 
-    const [campaign, created] = await CampaignMetadata.upsert(metadata, {
-      returning: true
-    });
+    // If identifier looks like a UUID, update the existing metadata record only
+    const metadataRecord = await CampaignMetadata.findOne({ where: { uuid: identifier } });
+    if (!metadataRecord) {
+      return res.status(404).json({ success: false, error: 'Campaign metadata not found for provided UUID' });
+    }
 
-    res.json({
-      success: true,
-      message: created ? 'Campaign metadata created' : 'Campaign metadata updated',
-      data: campaign
-    });
+    // Update fields
+    if (category) metadataRecord.category = category;
+    if (location) metadataRecord.location = location;
+    if (detailedDescription) metadataRecord.detailedDescription = detailedDescription;
+    if (websiteUrl) metadataRecord.websiteUrl = websiteUrl;
+    if (socialMedia) metadataRecord.socialMedia = socialMedia ? JSON.parse(socialMedia) : metadataRecord.socialMedia;
+    if (req.file) metadataRecord.imageUrl = `/uploads/campaigns/${req.file.filename}`;
+
+    await metadataRecord.save();
+
+    return res.json({ success: true, message: 'Campaign metadata updated', data: metadataRecord });
   } catch (error) {
     console.error('Error saving campaign metadata:', error);
     res.status(500).json({ success: false, error: error.message });
@@ -152,16 +187,11 @@ router.post('/:campaignId', upload.single('image'), async (req, res) => {
 // Get campaign metadata
 router.get('/:campaignId', async (req, res) => {
   try {
-    const { campaignId } = req.params;
-    const metadata = await CampaignMetadata.findOne({
-      where: { campaignId: parseInt(campaignId) }
-    });
+    const { campaignId: identifier } = req.params;
+    const metadata = await findMetadataByIdentifier(identifier);
 
     if (!metadata) {
-      return res.status(404).json({
-        success: false,
-        error: 'Campaign metadata not found'
-      });
+      return res.status(404).json({ success: false, error: 'Campaign metadata not found' });
     }
 
     res.json({ success: true, data: metadata });
@@ -188,20 +218,15 @@ router.get('/', async (req, res) => {
 // Upload gallery images (multiple)
 router.post('/:campaignId/gallery', upload.array('images', 10), async (req, res) => {
   try {
-    const { campaignId } = req.params;
-    console.log(`📸 Gallery upload request for campaign ${campaignId}`);
+    const { campaignId: identifier } = req.params;
+    console.log(`📸 Gallery upload request for campaign ${identifier}`);
     console.log(`📸 Files received:`, req.files?.length || 0);
 
-    const metadata = await CampaignMetadata.findOne({
-      where: { campaignId: parseInt(campaignId) }
-    });
+    const metadata = await findMetadataByIdentifier(identifier);
 
     if (!metadata) {
-      console.error(`❌ Campaign ${campaignId} not found in database`);
-      return res.status(404).json({
-        success: false,
-        error: 'Campaign not found'
-      });
+      console.error(`❌ Campaign ${identifier} not found in database`);
+      return res.status(404).json({ success: false, error: 'Campaign not found' });
     }
 
     const galleryImages = metadata.galleryImages || [];
@@ -227,11 +252,7 @@ router.post('/:campaignId/gallery', upload.array('images', 10), async (req, res)
     await metadata.reload();
     console.log(`📸 Reloaded gallery images:`, metadata.galleryImages);
 
-    res.json({ 
-      success: true, 
-      message: `${req.files.length} image(s) uploaded`,
-      data: metadata 
-    });
+    res.json({ success: true, message: `${req.files.length} image(s) uploaded`, data: metadata });
   } catch (error) {
     console.error('❌ Error uploading gallery images:', error);
     res.status(500).json({ success: false, error: error.message });
@@ -241,12 +262,10 @@ router.post('/:campaignId/gallery', upload.array('images', 10), async (req, res)
 // Delete gallery image
 router.delete('/:campaignId/gallery/:imageIndex', async (req, res) => {
   try {
-    const { campaignId, imageIndex } = req.params;
+    const { campaignId: identifier, imageIndex } = req.params;
     const index = parseInt(imageIndex);
 
-    const metadata = await CampaignMetadata.findOne({
-      where: { campaignId: parseInt(campaignId) }
-    });
+    const metadata = await findMetadataByIdentifier(identifier);
 
     if (!metadata) {
       return res.status(404).json({ success: false, error: 'Campaign not found' });
@@ -284,11 +303,7 @@ router.delete('/:campaignId/gallery/:imageIndex', async (req, res) => {
       });
     }
 
-    res.json({ 
-      success: true, 
-      message: 'Gallery image deleted',
-      data: metadata 
-    });
+    res.json({ success: true, message: 'Gallery image deleted', data: metadata });
   } catch (error) {
     console.error('❌ Error deleting gallery image:', error);
     res.status(500).json({ success: false, error: error.message });
@@ -298,26 +313,17 @@ router.delete('/:campaignId/gallery/:imageIndex', async (req, res) => {
 // Add campaign update
 router.post('/:campaignId/updates', async (req, res) => {
   try {
-    const { campaignId } = req.params;
+    const { campaignId: identifier } = req.params;
     const { title, content } = req.body;
 
-    const metadata = await CampaignMetadata.findOne({
-      where: { campaignId: parseInt(campaignId) }
-    });
+    const metadata = await findMetadataByIdentifier(identifier);
 
     if (!metadata) {
-      return res.status(404).json({
-        success: false,
-        error: 'Campaign not found'
-      });
+      return res.status(404).json({ success: false, error: 'Campaign not found' });
     }
 
     const updates = metadata.updates || [];
-    updates.push({
-      title,
-      content,
-      timestamp: new Date()
-    });
+    updates.push({ title, content, timestamp: new Date() });
 
     metadata.updates = updates;
     await metadata.save();
@@ -373,23 +379,19 @@ router.put('/:campaignId', async (req, res) => {
   if (typeof ai_summary !== 'undefined') offChainData.ai_summary = ai_summary;
   if (typeof ai_risk_assessment !== 'undefined') offChainData.ai_risk_assessment = ai_risk_assessment;
 
-    // Find or create metadata record
-    let metadata = await CampaignMetadata.findOne({
-      where: { campaignId: parseInt(campaignId) }
-    });
+    // Find metadata by numeric id or uuid
+    let metadata = await findMetadataByIdentifier(identifier);
 
     if (!metadata) {
-      // Create new metadata record
-      metadata = await CampaignMetadata.create({
-        campaignId: parseInt(campaignId),
-        ...offChainData
-      });
+      // If identifier is numeric, create new metadata with campaignId
+      if (/^\d+$/.test(identifier)) {
+        metadata = await CampaignMetadata.create({ campaignId: parseInt(identifier), ...offChainData });
+      } else {
+        return res.status(404).json({ success: false, error: 'Campaign metadata not found for provided UUID' });
+      }
     } else {
       // Update existing record
-      await metadata.update({
-        ...offChainData,
-        updatedAt: new Date()
-      });
+      await metadata.update({ ...offChainData, updatedAt: new Date() });
     }
 
     res.json({ 

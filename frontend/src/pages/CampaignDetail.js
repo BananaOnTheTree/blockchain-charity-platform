@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { ethers } from 'ethers';
 import { Lightbox } from '../components/wizard';
 import useLightbox from '../hooks/useLightbox';
 import './CampaignDetail.css';
 
 const CampaignDetail = ({ 
-  campaignId, 
+  campaignUuid,
   contract, 
   account, 
   onBack, 
@@ -18,6 +18,8 @@ const CampaignDetail = ({
   showInputModal 
 }) => {
   const navigate = useNavigate();
+  const { campaignUuid: paramCampaignUuid } = useParams();
+  const uuid = campaignUuid || paramCampaignUuid;
   const [campaign, setCampaign] = useState(null);
   const [metadata, setMetadata] = useState(null);
   const [donation, setDonation] = useState(null);
@@ -34,20 +36,43 @@ const CampaignDetail = ({
   const [blockchainTime, setBlockchainTime] = useState(null);
   
   // Lightbox hook for gallery
-  const lightbox = useLightbox();  const loadCampaignData = useCallback(async () => {
+  const lightbox = useLightbox();
+
+  const loadCampaignData = useCallback(async () => {
     if (!contract || !account) {
       // Don't set loading to false yet, wait for contract to be ready
       return;
     }
-    
+
+    if (!uuid || typeof uuid !== 'string') {
+      console.warn('loadCampaignData: missing campaignUuid, skipping load', uuid);
+      return;
+    }
+
     try {
       setLoading(true);
       setError(null);
 
-      // Load blockchain data
-      const campaignData = await contract.getCampaign(campaignId);
+      try {
+        const resp = await fetch(`http://localhost:3001/api/campaigns/${encodeURIComponent(uuid)}`);
+        if (resp.ok) {
+          const json = await resp.json();
+          if (json.success) {
+            setMetadata(json.data);
+          }
+        }
+      } catch (err) {
+        console.warn('Failed to load metadata by UUID', err);
+      }
+
+      // Load blockchain data using UUID directly (contract uses DB UUID string as key)
+      const campaignData = await contract.getCampaign(uuid);
+      if (!campaignData) {
+        throw new Error('Contract returned null for getCampaign(' + uuid + ')');
+      }
+
       const parsedCampaign = {
-        id: campaignId,
+        id: uuid,
         beneficiary: campaignData[0],
         title: campaignData[1],
         description: campaignData[2],
@@ -57,7 +82,7 @@ const CampaignDetail = ({
         finalized: campaignData[6],
         refundEnabled: campaignData[7],
         creator: campaignData[8],
-  dbUuid: campaignData[9]
+        dbUuid: campaignData[9]
       };
       setCampaign(parsedCampaign);
 
@@ -68,12 +93,18 @@ const CampaignDetail = ({
       setBlockchainTime(block.timestamp);
 
       // Load user's donation
-      const userDonation = await contract.getContribution(campaignId, account);
+      let userDonation = null;
+      try {
+        userDonation = await contract.getContribution(uuid, account);
+      } catch (err) {
+        console.warn('getContribution failed:', err);
+        userDonation = 0;
+      }
       setDonation(userDonation);
 
       // Load leaderboard (top 10 donors)
       try {
-        const [donors, amounts] = await contract.getTopDonors(campaignId, 10);
+        const [donors, amounts] = await contract.getTopDonors(uuid, 10);
         const leaderboardData = donors.map((donor, index) => ({
           rank: index + 1,
           address: donor,
@@ -86,17 +117,6 @@ const CampaignDetail = ({
         setLeaderboard([]);
       }
 
-      // Load metadata from backend
-      try {
-        const response = await fetch(`http://localhost:3001/api/campaigns/${campaignId}`);
-        if (response.ok) {
-          const data = await response.json();
-          setMetadata(data.data);
-        }
-      } catch (err) {
-        console.log('No metadata found for campaign');
-      }
-
       setLoading(false);
     } catch (error) {
       console.error('Error loading campaign:', error);
@@ -104,7 +124,7 @@ const CampaignDetail = ({
       showModal('Error', 'Failed to load campaign details', 'error');
       setLoading(false);
     }
-  }, [campaignId, contract, account, showModal]);
+  }, [uuid, contract, account, showModal]);
 
   useEffect(() => {
     loadCampaignData();
@@ -118,7 +138,7 @@ const CampaignDetail = ({
     setAiRisk(null);
     setAiCached(false);
     try {
-      const summaryResp = await fetch(`http://localhost:3001/api/ai/campaigns/${campaignId}/generate`, {
+  const summaryResp = await fetch(`http://localhost:3001/api/ai/campaigns/${encodeURIComponent(uuid)}/generate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'summary', title: campaign.title, description: campaign.description })
@@ -128,7 +148,7 @@ const CampaignDetail = ({
       setAiSummary(summaryJson.data);
       if (summaryJson.cached) setAiCached(true);
 
-      const riskResp = await fetch(`http://localhost:3001/api/ai/campaigns/${campaignId}/generate`, {
+  const riskResp = await fetch(`http://localhost:3001/api/ai/campaigns/${encodeURIComponent(uuid)}/generate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'risk', title: campaign.title, description: campaign.description })
@@ -148,17 +168,17 @@ const CampaignDetail = ({
   // Save functionality removed per request; AI only generates locally
 
   const handleDonateClick = () => {
-    onDonate(campaignId);
+    if (campaign && typeof campaign.id !== 'undefined') onDonate(campaign.id);
     // Reload will happen through parent component
   };
 
   const handleFinalizeClick = async () => {
-    await onFinalize(campaignId);
+    if (campaign && typeof campaign.id !== 'undefined') await onFinalize(campaign.id);
     await loadCampaignData(); // Reload after finalization
   };
 
   const handleClaimRefundClick = async () => {
-    await onClaimRefund(campaignId);
+    if (campaign && typeof campaign.id !== 'undefined') await onClaimRefund(campaign.id);
     await loadCampaignData(); // Reload after refund
   };
 
@@ -472,7 +492,7 @@ const CampaignDetail = ({
                 <span className="detail-value monospace">{
                   metadata?.uuid
                     ? `${metadata.uuid.substring(0,8)}...${metadata.uuid.substring(metadata.uuid.length - 4)}`
-                    : `#${campaignId.toString()}`
+                    : `#${campaign?.id?.toString() || 'N/A'}`
                 }</span>
               </div>
               <div className="detail-item">
