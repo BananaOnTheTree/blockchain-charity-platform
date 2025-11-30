@@ -2,15 +2,11 @@ const { DataTypes } = require('sequelize');
 const sequelize = require('../config/sequelize');
 
 const CampaignMetadata = sequelize.define('CampaignMetadata', {
-  id: {
-    type: DataTypes.INTEGER,
-    primaryKey: true,
-    autoIncrement: true
-  },
   uuid: {
     type: DataTypes.UUID,
     allowNull: false,
     defaultValue: DataTypes.UUIDV4,
+    primaryKey: true,
     unique: true,
     comment: 'Application-level UUID for the metadata record (stable across environments)'
   },

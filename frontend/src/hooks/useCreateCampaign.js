@@ -43,8 +43,9 @@ export const useCreateCampaign = (contract, showModal, loadCampaigns) => {
         throw new Error('Failed to create database record');
       }
       
-      const dbId = dbResponse.dbId;
-      console.log('Created database record with ID:', dbId);
+  // Use the UUID returned by the backend (safer and stable across environments)
+  const dbUuid = dbResponse.dbUuid || dbResponse.dbId; // fallback if backend returns numeric id
+  console.log('Created database record with UUID:', dbUuid);
       
       // Step 2: Create blockchain campaign with DB ID
       const goalInWei = ethers.parseEther(newCampaign.goalAmount);
@@ -56,7 +57,7 @@ export const useCreateCampaign = (contract, showModal, loadCampaigns) => {
         newCampaign.description || '',
         goalInWei,
         durationInDays,
-        dbId  // Pass database ID to smart contract
+        dbUuid  // Pass database UUID to smart contract
       );
       
       const receipt = await tx.wait();
@@ -64,7 +65,8 @@ export const useCreateCampaign = (contract, showModal, loadCampaigns) => {
       console.log('Created blockchain campaign with ID:', campaignId);
       
       // Step 3: Link the database record to the blockchain campaign ID
-      await campaignAPI.linkCampaign(dbId, campaignId);
+  // Link backend record by UUID to the blockchain campaignId
+  await campaignAPI.linkCampaign(dbUuid, campaignId);
       console.log('Linked DB record to blockchain campaign');
       
       // Step 4: Upload image if provided

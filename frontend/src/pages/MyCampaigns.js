@@ -27,7 +27,7 @@ const MyCampaigns = ({
             >
               <button 
                 className="view-detail-btn"
-                onClick={() => navigate(`/campaign/${campaign.id}`)}
+                onClick={() => navigate(`/campaign/${campaign.dbUuid || campaign.id}`)}
                 aria-label="View campaign details"
               >
                 👁 View

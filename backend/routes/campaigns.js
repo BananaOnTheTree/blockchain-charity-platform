@@ -48,9 +48,8 @@ router.post('/init', async (req, res) => {
     res.json({
       success: true,
       message: 'Campaign record created',
-      // Keep returning the numeric DB id for compatibility with the smart contract flow,
-      // and also return the new UUID for off-chain references.
-      dbId: metadata.id,
+      // Return the UUID for the frontend and smart contract integration.
+      dbId: metadata.id || null,
       dbUuid: metadata.uuid,
       data: metadata
     });
@@ -60,24 +59,20 @@ router.post('/init', async (req, res) => {
   }
 });
 
-// Update campaign with blockchain ID after creation
-router.patch('/:dbId/link', async (req, res) => {
+// Update campaign with blockchain ID after creation (accepts UUID path param)
+router.patch('/:dbUuid/link', async (req, res) => {
   try {
-    const { dbId } = req.params;
+    const { dbUuid } = req.params;
     const { campaignId } = req.body;
 
-    // Find by primary key (numeric dbId) for compatibility with the smart contract flow
-    const parsedDbId = Number.isFinite(Number(dbId)) ? parseInt(dbId) : null;
-    if (parsedDbId === null) {
-      return res.status(400).json({ success: false, error: 'Invalid dbId' });
+    if (!dbUuid || typeof dbUuid !== 'string') {
+      return res.status(400).json({ success: false, error: 'Invalid dbUuid' });
     }
-    const metadata = await CampaignMetadata.findByPk(parsedDbId);
-    
+
+    // Find metadata by UUID
+    const metadata = await CampaignMetadata.findOne({ where: { uuid: dbUuid } });
     if (!metadata) {
-      return res.status(404).json({
-        success: false,
-        error: 'Campaign record not found'
-      });
+      return res.status(404).json({ success: false, error: 'Campaign record not found' });
     }
 
     // Validate campaignId
@@ -88,42 +83,32 @@ router.patch('/:dbId/link', async (req, res) => {
 
     // Ensure no other metadata record is already linked to this blockchain campaignId
     const existing = await CampaignMetadata.findOne({ where: { campaignId: parsedId } });
-    if (existing && existing.id !== metadata.id) {
-      // If client explicitly requests a forced reassign, move the mapping from the old
-      // record to this one. This is useful for local/dev flows where blockchain IDs may
-      // be reused after a node reset. Force must be explicitly provided to avoid data loss.
+    if (existing && existing.uuid !== metadata.uuid) {
       const force = req.body.force === true || req.query.force === 'true';
 
       if (!force) {
         return res.status(400).json({
           success: false,
-          error: `campaignId ${parsedId} is already linked to another record (dbId=${existing.id}). To override, call again with { force: true }`,
-          existingDbId: existing.id
+          error: `campaignId ${parsedId} is already linked to another record (dbUuid=${existing.uuid}). To override, call again with { force: true }`,
+          existingDbUuid: existing.uuid
         });
       }
 
-      // Perform reassignment in a transaction to avoid race conditions
+      // Reassign in a transaction
       const sequelize = require('../config/sequelize');
       await sequelize.transaction(async (t) => {
-        // Clear campaignId on the old record
         existing.campaignId = null;
         await existing.save({ transaction: t });
 
-        // Assign campaignId to the requested record
         metadata.campaignId = parsedId;
         await metadata.save({ transaction: t });
       });
     } else {
-      // No conflicting record - safe to assign
       metadata.campaignId = parsedId;
       await metadata.save();
     }
 
-    res.json({
-      success: true,
-      message: 'Campaign linked to blockchain',
-      data: metadata
-    });
+    res.json({ success: true, message: 'Campaign linked to blockchain', data: metadata });
   } catch (error) {
     console.error('Error linking campaign:', error);
     res.status(500).json({ success: false, error: error.message });

@@ -57,7 +57,7 @@ const CampaignDetail = ({
         finalized: campaignData[6],
         refundEnabled: campaignData[7],
         creator: campaignData[8],
-        dbId: Number(campaignData[9])
+  dbUuid: campaignData[9]
       };
       setCampaign(parsedCampaign);
 
@@ -163,7 +163,8 @@ const CampaignDetail = ({
   };
 
   const handleEditClick = () => {
-    navigate(`/campaign/${campaignId}/edit`);
+    // Navigate to edit route by UUID (URL uses UUID)
+    navigate(`/campaign/${campaign.dbUuid}/edit`);
   };
 
   const openGalleryLightbox = (index) => {

@@ -25,7 +25,7 @@ contract CharityCampaignFactory is Ownable, ReentrancyGuard {
         bool finalized;
         bool refundEnabled;
         address creator;
-        uint256 dbId; // Database ID for off-chain metadata
+    string dbUuid; // Database UUID for off-chain metadata
         bool paused; // Emergency pause by owner
         bool cancelled; // Cancelled by creator
         uint256 createdAt; // Campaign creation timestamp
@@ -50,7 +50,7 @@ contract CharityCampaignFactory is Ownable, ReentrancyGuard {
         string title,
         uint256 goalAmount,
         uint256 deadline,
-        uint256 dbId
+        string dbUuid
     );
 
     event DonationReceived(
@@ -131,7 +131,7 @@ contract CharityCampaignFactory is Ownable, ReentrancyGuard {
      * @param _description Campaign description
      * @param _goalAmount Fundraising goal in wei
      * @param _durationDays Campaign duration in days
-     * @param _dbId Database ID for off-chain metadata storage
+    * @param _dbUuid Database UUID for off-chain metadata storage
      */
     function createCampaign(
         address payable _beneficiary,
@@ -139,14 +139,14 @@ contract CharityCampaignFactory is Ownable, ReentrancyGuard {
         string memory _description,
         uint256 _goalAmount,
         uint256 _durationDays,
-        uint256 _dbId
+        string memory _dbUuid
     ) external returns (uint256) {
         require(_beneficiary != address(0), "Invalid beneficiary address");
         require(_goalAmount >= MIN_GOAL_AMOUNT, "Goal amount too low");
         require(_durationDays > 0, "Duration must be positive");
         require(bytes(_title).length > 0, "Title cannot be empty");
         require(bytes(_title).length <= 200, "Title too long");
-        require(_dbId > 0, "Invalid database ID");
+    require(bytes(_dbUuid).length > 0, "Invalid database UUID");
 
         uint256 durationInSeconds = _durationDays * 1 days;
         require(durationInSeconds >= MIN_CAMPAIGN_DURATION, "Campaign duration too short");
@@ -164,7 +164,7 @@ contract CharityCampaignFactory is Ownable, ReentrancyGuard {
             finalized: false,
             refundEnabled: false,
             creator: msg.sender,
-            dbId: _dbId,
+            dbUuid: _dbUuid,
             paused: false,
             cancelled: false,
             createdAt: block.timestamp
@@ -181,7 +181,7 @@ contract CharityCampaignFactory is Ownable, ReentrancyGuard {
             _title,
             _goalAmount,
             deadline,
-            _dbId
+            _dbUuid
         );
 
         return campaignId;
@@ -417,7 +417,7 @@ contract CharityCampaignFactory is Ownable, ReentrancyGuard {
             bool finalized,
             bool refundEnabled,
             address creator,
-            uint256 dbId,
+                string memory dbUuid,
             bool paused,
             bool cancelled,
             uint256 createdAt
@@ -434,7 +434,7 @@ contract CharityCampaignFactory is Ownable, ReentrancyGuard {
             campaign.finalized,
             campaign.refundEnabled,
             campaign.creator,
-            campaign.dbId,
+                campaign.dbUuid,
             campaign.paused,
             campaign.cancelled,
             campaign.createdAt

@@ -65,7 +65,7 @@ const EditCampaign = ({ campaignId, contract, account, showModal, onCancel }) =>
         finalized: campaignData[6],
         refundEnabled: campaignData[7],
         creator: campaignData[8],
-        dbId: Number(campaignData[9])
+  dbUuid: campaignData[9]
       };
 
       setCampaign(campaignInfo);
@@ -75,13 +75,13 @@ const EditCampaign = ({ campaignId, contract, account, showModal, onCancel }) =>
       // Check if user is the creator
       if (campaignInfo.creator.toLowerCase() !== account.toLowerCase()) {
         showModal('Access Denied', 'Only the campaign creator can edit this campaign.', 'error');
-        navigate(`/campaign/${campaignId}`);
+        navigate(`/campaign/${campaignInfo.dbUuid}`);
         return;
       }
 
       if (campaignInfo.finalized) {
         showModal('Cannot Edit', 'Finalized campaigns cannot be edited.', 'warning');
-        navigate(`/campaign/${campaignId}`);
+        navigate(`/campaign/${campaignInfo.dbUuid}`);
         return;
       }
 
@@ -223,8 +223,8 @@ const EditCampaign = ({ campaignId, contract, account, showModal, onCancel }) =>
         }
       }
 
-      showModal('Success!', 'Campaign updated successfully!', 'success');
-      navigate(`/campaign/${campaignId}`);
+  showModal('Success!', 'Campaign updated successfully!', 'success');
+  navigate(`/campaign/${campaign?.dbUuid || campaignId}`);
     } catch (error) {
       console.error('Error updating campaign:', error);
       showModal('Error', 'Failed to update campaign: ' + error.message, 'error');
@@ -237,7 +237,7 @@ const EditCampaign = ({ campaignId, contract, account, showModal, onCancel }) =>
     if (onCancel) {
       onCancel();
     } else {
-      navigate(`/campaign/${campaignId}`);
+      navigate(`/campaign/${campaign?.dbUuid || campaignId}`);
     }
   };
 

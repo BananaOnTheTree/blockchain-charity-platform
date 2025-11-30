@@ -101,9 +101,9 @@
         },
         {
           "indexed": false,
-          "internalType": "uint256",
-          "name": "dbId",
-          "type": "uint256"
+          "internalType": "string",
+          "name": "dbUuid",
+          "type": "string"
         }
       ],
       "name": "CampaignCreated",
@@ -423,9 +423,9 @@
           "type": "address"
         },
         {
-          "internalType": "uint256",
-          "name": "dbId",
-          "type": "uint256"
+          "internalType": "string",
+          "name": "dbUuid",
+          "type": "string"
         },
         {
           "internalType": "bool",
@@ -537,9 +537,9 @@
           "type": "uint256"
         },
         {
-          "internalType": "uint256",
-          "name": "_dbId",
-          "type": "uint256"
+          "internalType": "string",
+          "name": "_dbUuid",
+          "type": "string"
         }
       ],
       "name": "createCampaign",
@@ -692,9 +692,9 @@
           "type": "address"
         },
         {
-          "internalType": "uint256",
-          "name": "dbId",
-          "type": "uint256"
+          "internalType": "string",
+          "name": "dbUuid",
+          "type": "string"
         },
         {
           "internalType": "bool",

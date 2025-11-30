@@ -21,9 +21,10 @@ export const campaignAPI = {
   },
 
   // Link database record to blockchain campaign ID
-  async linkCampaign(dbId, campaignId) {
+  async linkCampaign(dbUuid, campaignId) {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/campaigns/${dbId}/link`, {
+      const encoded = encodeURIComponent(dbUuid);
+      const response = await fetch(`${API_BASE_URL}/api/campaigns/${encoded}/link`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json'

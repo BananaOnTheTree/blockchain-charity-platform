@@ -59,9 +59,16 @@ function App() {
 
   // Wrapper component for campaign detail page
   const CampaignDetailPage = () => {
-    const { campaignId } = useParams();
+    const { campaignUuid } = useParams();
     const navigate = useNavigate();
     const [refreshKey, setRefreshKey] = useState(0);
+
+    // Resolve campaignUuid to numeric campaignId using loaded campaigns
+    let resolvedCampaignId = null;
+    if (campaigns && campaignUuid) {
+      const found = campaigns.find(c => (c.dbUuid && c.dbUuid === campaignUuid) || String(c.id) === String(campaignUuid));
+      if (found) resolvedCampaignId = found.id;
+    }
 
     const handleDonationWithRefresh = (campaignId) => {
       showInputModal(
@@ -96,7 +103,7 @@ function App() {
       <Layout account={account} loading={loading} networkError={networkError}>
         <CampaignDetail
           key={refreshKey}
-          campaignId={parseInt(campaignId)}
+          campaignId={resolvedCampaignId !== null ? resolvedCampaignId : (campaignUuid ? (isNaN(Number(campaignUuid)) ? null : Number(campaignUuid)) : null)}
           contract={contract}
           account={account}
           onBack={() => navigate('/')}
@@ -115,16 +122,23 @@ function App() {
 
   // Wrapper component for edit campaign page
   const EditCampaignPage = () => {
-    const { campaignId } = useParams();
+    const { campaignUuid } = useParams();
     const navigate = useNavigate();
+
+    // Resolve UUID to numeric campaignId
+    let resolvedCampaignId = null;
+    if (campaigns && campaignUuid) {
+      const found = campaigns.find(c => (c.dbUuid && c.dbUuid === campaignUuid) || String(c.id) === String(campaignUuid));
+      if (found) resolvedCampaignId = found.id;
+    }
 
     return (
       <EditCampaign
-        campaignId={parseInt(campaignId)}
+        campaignId={resolvedCampaignId !== null ? resolvedCampaignId : (campaignUuid ? (isNaN(Number(campaignUuid)) ? null : Number(campaignUuid)) : null)}
         contract={contract}
         account={account}
         showModal={showModal}
-        onCancel={() => navigate(`/campaign/${campaignId}`)}
+        onCancel={() => navigate(`/campaign/${campaignUuid}`)}
       />
     );
   };
@@ -190,9 +204,9 @@ function App() {
           </Layout>
         } />
 
-        <Route path="/campaign/:campaignId" element={<CampaignDetailPage />} />
-        
-        <Route path="/campaign/:campaignId/edit" element={
+        <Route path="/campaign/:campaignUuid" element={<CampaignDetailPage />} />
+
+        <Route path="/campaign/:campaignUuid/edit" element={
           <Layout account={account} loading={loading} networkError={networkError}>
             <EditCampaignPage />
             <Modal {...modal} onClose={closeModal} />
